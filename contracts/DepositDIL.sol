@@ -19,7 +19,7 @@ contract DepositDIL is Owner {
     uint256 public mintFee = 100000000000000000;
 
     // The total unit of Dilithium the mint fee can pay for.
-    uint256 public constant limit = 50000;
+    uint256 public limit = 50000;
 
     // The allocation of minted Dilithium.
     mapping(address => DepositInfo) public deposited;
@@ -79,5 +79,17 @@ contract DepositDIL is Owner {
     // @param addr The address whose next limit is being queried.
     function getNextMintLimit(address addr) public view returns (uint256) {
         return deposited[addr].nextLimit;
+    }
+
+    /// @notice setMintFee sets the mint fee
+    /// @param fee is the new fee
+    function setMintFee(uint256 fee) public isOwner() {
+        mintFee = fee;
+    }
+
+    /// @notice setLimit sets the mint limit
+    /// @param value is the new limit
+    function setLimit(uint256 value) public isOwner() {
+        limit = value;
     }
 }

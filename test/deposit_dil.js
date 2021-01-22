@@ -7,6 +7,26 @@ contract("Main", (accounts) => {
 		ins = await Main.new({ from: accounts[0] });
 	});
 
+	describe(".setMintFee", async function () {
+		it("should set mint fee successfully", async () => {
+			let fee = await ins.mintFee.call();
+			expect(fee.toString()).to.equal("100000000000000000");
+			await ins.setMintFee(1234);
+			fee = await ins.mintFee.call();
+			expect(fee.toNumber()).to.equal(1234);
+		});
+	});
+
+	describe(".setLimit", async function () {
+		it("should set limit successfully", async () => {
+			let fee = await ins.limit.call();
+			expect(fee.toString()).to.equal("50000");
+			await ins.setLimit(1234);
+			fee = await ins.limit.call();
+			expect(fee.toNumber()).to.equal(1234);
+		});
+	});
+
 	describe(".getDILBalance", async function () {
 		it("should return zero (0) if no DIL has been minted for an address", async () => {
 			const res = await ins.getDILBalance.call(accounts[1]);
