@@ -4,7 +4,7 @@ const truffleAssert = require("truffle-assertions");
 contract("Main", (accounts) => {
 	let ins;
 	beforeEach(async () => {
-		ins = await Main.new({ from: accounts[0] });
+		ins = await Main.new(web3.utils.randomHex(20), { from: accounts[0] });
 	});
 
 	describe(".setMintFee", async function () {

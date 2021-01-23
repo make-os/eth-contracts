@@ -2,7 +2,7 @@
 pragma solidity >0.4.25 <0.9.0;
 
 import "./Owner.sol";
-import "./libs/SafeMath.sol";
+import "./libs/math/SafeMath.sol";
 
 /// @notice DepositInfo represents a DIL ownership information
 struct DepositInfo {
