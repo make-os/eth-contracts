@@ -1,10 +1,10 @@
-const Latinum = artifacts.require("Latinum");
+const Dilithium = artifacts.require("Dilithium");
 const truffleAssert = require("truffle-assertions");
 
-contract("Latinum", (accounts) => {
+contract("Dilithium", (accounts) => {
 	let ins;
 	beforeEach(async () => {
-		ins = await Latinum.new({ from: accounts[0] });
+		ins = await Dilithium.new({ from: accounts[0] });
 	});
 
 	describe(".mint", async function () {
@@ -25,10 +25,17 @@ contract("Latinum", (accounts) => {
 				"Sender is not owner",
 			);
 		});
+	});
 
-		it("should revert if amount will cause max supply to be exceeded", async () => {
-			await ins.mint(accounts[1], "150000000000000000000000000");
-			await truffleAssert.reverts(ins.mint(accounts[1], 1), "Cannot exceed max supply");
+	describe(".burn", async function () {
+		it("should burn balance successfully", async () => {
+			const res = await ins.mint(accounts[1], 100);
+			let bal = (await ins.balanceOf(accounts[1])).toNumber();
+			expect(bal).to.equal(100);
+
+			await ins.burn(100, { from: accounts[1] });
+			bal = (await ins.balanceOf(accounts[1])).toNumber();
+			expect(bal).to.equal(0);
 		});
 	});
 });

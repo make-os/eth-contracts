@@ -5,21 +5,33 @@ import "./DepositDIL.sol";
 import "./Owner.sol";
 import "./Latinum.sol";
 import "./Dilithium.sol";
+import "./Auction.sol";
 import "./libs/ell/EIP20.sol";
 
 /// @title Main
 contract Main is DepositDIL {
     Latinum public ltn;
     Dilithium public dil;
-    EIP20 public ell;
+    EIP20 ell;
+    Auction auc;
 
-    event SwappedMain(address account, uint256 amount);
+    event SwappedELL(address account, uint256 amount);
 
     /// @dev initializes the contract
-    constructor(address ellAddress) {
+    constructor(
+        address ellAddress,
+        int256 maxAuctionPeriods,
+        uint256 ltnSupplyPerAuctionPeriod
+    ) {
         ltn = new Latinum();
         dil = new Dilithium();
         ell = EIP20(ellAddress);
+        auc = new Auction(
+            ltn,
+            dil,
+            maxAuctionPeriods,
+            ltnSupplyPerAuctionPeriod
+        );
     }
 
     /// @dev swapELL swaps ELL approved by from by burning it
@@ -36,8 +48,12 @@ contract Main is DepositDIL {
         uint256 swapAmount,
         uint256 mintAmount
     ) public isOwner() {
+        require(
+            ell.allowance(from, address(this)) >= swapAmount,
+            "Swap amount not unlocked"
+        );
         ell.transferFrom(from, address(0), swapAmount);
         ltn.mint(from, mintAmount);
-        emit SwappedMain(from, swapAmount);
+        emit SwappedELL(from, swapAmount);
     }
 }
