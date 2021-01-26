@@ -4,6 +4,7 @@ pragma solidity >0.4.25 <0.9.0;
 import "./Latinum.sol";
 import "./Dilithium.sol";
 import "./libs/math/SafeMath.sol";
+import "./libs/math/Math.sol";
 
 /// Claim represents a bidder's claim to a bidding
 /// period Latinum supply.
@@ -21,8 +22,7 @@ struct Period {
 
 /// @author The MakeOS Team
 /// @title The contract that provides the Latinum dutch auction functionality.
-contract Auction {
-    Latinum ltn;
+contract Auction is Latinum {
     Dilithium dil;
 
     // periods contain the auction periods
@@ -36,6 +36,12 @@ contract Auction {
 
     // ltnSupplyPerPeriod is the maximum amount of LTN distributed per auction.
     uint256 public ltnSupplyPerPeriod;
+
+    // minBid is the minimum bid
+    uint256 minBid;
+
+    // maxBid is the maximum bid
+    uint256 maxBid;
 
     /// @dev isAuctionClosed is a modifier to check if the auction has closed.
     modifier isAuctionClosed() {
@@ -58,19 +64,19 @@ contract Auction {
 
     event NewAuctionPeriod(uint256 index, uint256 endTime);
 
-    // / @notice The constructor
-    // / @param _ltn is the Latinum  contract.
-    // / @param _dil is the Dilithium  contract.
-    // / @param _maxPeriods is the number of auction periods.
-    // / @param _ltnSupplyPerPeriod is the supply of Latinum per period.
+    /// @notice The constructor
+    /// @param _dilAddress is the address of the Dilithium contract.
+    /// @param _maxPeriods is the number of auction periods.
+    /// @param _ltnSupplyPerPeriod is the supply of Latinum per period.
+    /// @param _minBid is minimum bid per period.
     constructor(
-        Latinum _ltn,
-        Dilithium _dil,
+        address _dilAddress,
         int256 _maxPeriods,
-        uint256 _ltnSupplyPerPeriod
+        uint256 _ltnSupplyPerPeriod,
+        uint256 _minBid
     ) {
-        ltn = _ltn;
-        dil = _dil;
+        dil = Dilithium(_dilAddress);
+        minBid = _minBid;
         maxPeriods = _maxPeriods;
         ltnSupplyPerPeriod = _ltnSupplyPerPeriod;
     }
@@ -122,7 +128,8 @@ contract Auction {
         isBidAmountUnlocked(msg.sender, bidAmount)
         returns (bool)
     {
-        require(bidAmount > 0, "Bid amount too small");
+        require(bidAmount >= minBid, "Bid amount too small");
+        require(getNumOfClaims() + 1 <= 5, "Too many unprocessed claims");
 
         // Burn the the bid amount
         dil.transferFrom(msg.sender, address(this), bidAmount);
@@ -150,5 +157,38 @@ contract Auction {
     /// @dev getNumOfClaims returns the number of claims the sender has.
     function getNumOfClaims() public view returns (uint256) {
         return claims[msg.sender].length;
+    }
+
+    /// @dev claim
+    function claim() public {
+        bool recentActive;
+
+        for (uint256 i = 0; i < getNumOfClaims(); i++) {
+            Claim memory claim_ = claims[msg.sender][i];
+            Period memory period = periods[claim_.period];
+
+            // Skip claim in current, unexpired period
+            if (period.endTime > block.timestamp) {
+                recentActive = true;
+                continue;
+            }
+
+            // Delete claim
+            delete claims[msg.sender][i];
+
+            // Get base point for the claim
+            uint256 bps = Math.getBPSOfAInB(claim_.bid, period.totalBids);
+            uint256 ltnReward = (period.ltnSupply * bps) / 10000;
+            _mint(msg.sender, ltnReward);
+        }
+
+        if (recentActive) {
+            Claim memory recent =
+                claims[msg.sender][claims[msg.sender].length - 1];
+            delete claims[msg.sender];
+            claims[msg.sender].push(recent);
+        } else {
+            delete claims[msg.sender];
+        }
     }
 }

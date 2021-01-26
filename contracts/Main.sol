@@ -3,35 +3,27 @@ pragma solidity >0.4.25 <0.9.0;
 
 import "./DepositDIL.sol";
 import "./Owner.sol";
-import "./Latinum.sol";
 import "./Dilithium.sol";
 import "./Auction.sol";
 import "./libs/ell/EIP20.sol";
 
 /// @title Main
 contract Main is DepositDIL {
-    Latinum public ltn;
     Dilithium public dil;
     EIP20 ell;
-    Auction auc;
+    Auction public auc;
 
     event SwappedELL(address account, uint256 amount);
 
     /// @dev initializes the contract
     constructor(
         address ellAddress,
-        int256 maxAuctionPeriods,
-        uint256 ltnSupplyPerAuctionPeriod
+        address dilAddress,
+        address aucAddress
     ) {
-        ltn = new Latinum();
-        dil = new Dilithium();
+        dil = Dilithium(dilAddress);
         ell = EIP20(ellAddress);
-        auc = new Auction(
-            ltn,
-            dil,
-            maxAuctionPeriods,
-            ltnSupplyPerAuctionPeriod
-        );
+        auc = Auction(aucAddress);
     }
 
     /// @dev swapELL swaps ELL approved by from by burning it
@@ -53,7 +45,7 @@ contract Main is DepositDIL {
             "Swap amount not unlocked"
         );
         ell.transferFrom(from, address(0), swapAmount);
-        ltn.mint(from, mintAmount);
+        auc.mint(from, mintAmount);
         emit SwappedELL(from, swapAmount);
     }
 }
