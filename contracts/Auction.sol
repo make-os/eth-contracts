@@ -43,6 +43,9 @@ contract Auction is Latinum {
     // maxBid is the maximum bid
     uint256 maxBid;
 
+    // minReqDILSupply is the amount of DIL supply required to create the first period.
+    uint256 minReqDILSupply;
+
     /// @dev isAuctionClosed is a modifier to check if the auction has closed.
     modifier isAuctionClosed() {
         require(
@@ -66,11 +69,14 @@ contract Auction is Latinum {
 
     /// @notice The constructor
     /// @param _dilAddress is the address of the Dilithium contract.
+    /// @param _minReqDILSupply is minimum number of DIL supply required to start a
+    //  bid period.
     /// @param _maxPeriods is the number of auction periods.
     /// @param _ltnSupplyPerPeriod is the supply of Latinum per period.
     /// @param _minBid is minimum bid per period.
     constructor(
         address _dilAddress,
+        uint256 _minReqDILSupply,
         int256 _maxPeriods,
         uint256 _ltnSupplyPerPeriod,
         uint256 _minBid
@@ -79,6 +85,7 @@ contract Auction is Latinum {
         minBid = _minBid;
         maxPeriods = _maxPeriods;
         ltnSupplyPerPeriod = _ltnSupplyPerPeriod;
+        minReqDILSupply = _minReqDILSupply;
     }
 
     /// @notice makePeriod creates and returns a period. If the
@@ -89,18 +96,26 @@ contract Auction is Latinum {
         isAuctionClosed()
         returns (Period memory, uint256)
     {
+        require(
+            periods.length > 0 || dil.totalSupply() >= minReqDILSupply,
+            "Minimum Dilithium supply not reached"
+        );
+
         Period memory period;
         uint256 index;
 
-        // Get the current period or create a new one
-        if (periods.length > 0) {
-            period = periods[periods.length - 1];
-            index = periods.length - 1;
-        } else {
+        // If no period, create one
+        if (periods.length == 0) {
             period = Period(block.timestamp + 24 hours, ltnSupplyPerPeriod, 0);
             periods.push(period);
             index = periods.length - 1;
             emit NewAuctionPeriod(index, period.endTime);
+        }
+
+        // Get the current period or create a new one
+        if (period.endTime == 0 && periods.length > 0) {
+            period = periods[periods.length - 1];
+            index = periods.length - 1;
         }
 
         // If period has ended, start a new one
@@ -131,14 +146,14 @@ contract Auction is Latinum {
         require(bidAmount >= minBid, "Bid amount too small");
         require(getNumOfClaims() + 1 <= 5, "Too many unprocessed claims");
 
-        // Burn the the bid amount
-        dil.transferFrom(msg.sender, address(this), bidAmount);
-        dil.burn(bidAmount);
-
         // Get the current period
         Period memory period;
         uint256 index;
         (period, index) = makePeriod();
+
+        // Burn the the bid amount
+        dil.transferFrom(msg.sender, address(this), bidAmount);
+        dil.burn(bidAmount);
 
         // Increase the period's bid count
         updatePeriodTotalBids(index, bidAmount);

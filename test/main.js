@@ -7,16 +7,28 @@ const truffleAssert = require("truffle-assertions");
 
 contract("Main", (accounts) => {
 	let main, ell, dil, auc;
+	let ltnSupplyPerPeriod, maxPeriods, minBid, minDILSupply;
+
 	beforeEach(async () => {
+		ltnSupplyPerPeriod = 100;
+		maxPeriods = 1;
+		minBid = 100;
+		minDILSupply = 100;
+
 		ell = await ELL.new("150000000000", "Ellcrys Network Token", 18, "ELL", {
 			from: accounts[3],
 		});
 
 		dil = await Dilithium.new({ from: accounts[0] });
 
-		auc = await Auction.new(dil.address, 1, 100, 1000, {
-			from: accounts[0],
-		});
+		auc = await Auction.new(
+			dil.address,
+			minDILSupply,
+			maxPeriods,
+			ltnSupplyPerPeriod,
+			minBid,
+			{ from: accounts[0] },
+		);
 
 		main = await Main.new(ell.address, dil.address, auc.address, { from: accounts[0] });
 		await auc.setOwnerOnce(main.address, { from: accounts[0] });
