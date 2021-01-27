@@ -21,7 +21,7 @@ contract Latinum is ERC20("Latinum", "LTN"), Owner {
 
     /// @dev setOwnerOnce sets the final owner.
     /// Reverts if called a second time.
-    /// 
+    ///
     /// Requires the caller to be the current owner.
     ///
     /// @param owner_ is the new owner.

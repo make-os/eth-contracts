@@ -7,7 +7,7 @@ const truffleAssert = require("truffle-assertions");
 
 contract("DILDeposit", (accounts) => {
 	let main, ell, dil, auc;
-	let ltnSupplyPerPeriod, minDILSupply, maxPeriods, minBid;
+	let ltnSupplyPerPeriod, minDILSupply, maxPeriods, minBid, maxSwappableELL;
 
 	beforeEach(async () => {
 		ell = await ELL.new("150000000000", "Ellcrys Network Token", 18, "ELL", {
@@ -29,7 +29,10 @@ contract("DILDeposit", (accounts) => {
 			{ from: accounts[0] },
 		);
 
-		main = await Main.new(ell.address, dil.address, auc.address, { from: accounts[0] });
+		maxSwappableELL = 10000;
+		main = await Main.new(maxSwappableELL, ell.address, dil.address, auc.address, {
+			from: accounts[0],
+		});
 		await auc.setOwnerOnce(main.address, { from: accounts[0] });
 	});
 

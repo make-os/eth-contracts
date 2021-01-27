@@ -7,7 +7,7 @@ const truffleAssert = require("truffle-assertions");
 
 contract("Main", (accounts) => {
 	let main, ell, dil, auc;
-	let ltnSupplyPerPeriod, maxPeriods, minBid, minDILSupply;
+	let ltnSupplyPerPeriod, maxPeriods, minBid, minDILSupply, maxSwappableELL;
 
 	beforeEach(async () => {
 		ltnSupplyPerPeriod = 100;
@@ -30,7 +30,10 @@ contract("Main", (accounts) => {
 			{ from: accounts[0] },
 		);
 
-		main = await Main.new(ell.address, dil.address, auc.address, { from: accounts[0] });
+		maxSwappableELL = 10000;
+		main = await Main.new(maxSwappableELL, ell.address, dil.address, auc.address, {
+			from: accounts[0],
+		});
 		await auc.setOwnerOnce(main.address, { from: accounts[0] });
 	});
 
@@ -100,6 +103,27 @@ contract("Main", (accounts) => {
 
 				expect(res.logs).to.have.lengthOf(1);
 				expect(res.logs[0].event).to.equal("SwappedELL");
+			});
+		});
+
+		describe("test max. swap supply limit", () => {
+			beforeEach(async () => {
+				await ell.approve(main.address, 9999, { from: accounts[3] });
+				await main.swapELL(accounts[3], 9999, 9999);
+				expect((await main.swapped()).toNumber()).to.equal(9999);
+			});
+
+			it("should revert with 'Total swappable ELL reached' if swap will cause max. swappable supply to be exceeded", async () => {
+				await ell.approve(main.address, 2, { from: accounts[3] });
+				await truffleAssert.reverts(
+					main.swapELL(accounts[3], 2, 2),
+					"Total swappable ELL reached",
+				);
+			});
+
+			it("should not revert if swap will not cause max. swappable supply to be exceeded", async () => {
+				await ell.approve(main.address, 2, { from: accounts[3] });
+				await main.swapELL(accounts[3], 1, 1);
 			});
 		});
 	});

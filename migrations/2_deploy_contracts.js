@@ -23,13 +23,26 @@ module.exports = async function (deployer, network, accounts) {
 		{ from: sender },
 	);
 
+	// Mint non-public supply
+	const nonPublicSupplyAddr = accounts[4];
+	const nonPublicSupply = "75000000000000000000000000";
+	const auc = await Auction.deployed();
+	await auc.mint(nonPublicSupplyAddr, nonPublicSupply);
+
 	// Deploy main contract
 	const ELLContractAddr = "0x9d9aeea38de4643066bc09d3b210737b59af3a93";
-	await deployer.deploy(Main, ELLContractAddr, Dilithium.address, Auction.address, {
-		from: sender,
-	});
+	const MaxSwappableELL = "18984565000000000000000000"; // 18984565
+	await deployer.deploy(
+		Main,
+		MaxSwappableELL,
+		ELLContractAddr,
+		Dilithium.address,
+		Auction.address,
+		{
+			from: sender,
+		},
+	);
 
 	// Set auction contract owner
-	const auc = await Auction.deployed();
 	await auc.setOwnerOnce(Main.address, { from: sender });
 };

@@ -13,18 +13,26 @@ contract Main is DepositDIL {
     EIP20 ell;
     Auction public auc;
     uint256 public swapped;
+    uint256 public ellSwapped;
+    uint256 public maxSwappableELL;
 
     event SwappedELL(address account, uint256 amount);
 
     /// @dev initializes the contract
+    /// @param _maxSwappableELL max. number of ELL that can be swapped.
+    /// @param _ellAddress is the contract address of the ELL token.
+    /// @param _dilAddress is the contract address of the DIL token.
+    /// @param _aucAddress is the contract address of the auction and LTN token.
     constructor(
-        address ellAddress,
-        address dilAddress,
-        address aucAddress
+        uint256 _maxSwappableELL,
+        address _ellAddress,
+        address _dilAddress,
+        address _aucAddress
     ) {
-        dil = Dilithium(dilAddress);
-        ell = EIP20(ellAddress);
-        auc = Auction(aucAddress);
+        dil = Dilithium(_dilAddress);
+        ell = EIP20(_ellAddress);
+        auc = Auction(_aucAddress);
+        maxSwappableELL = _maxSwappableELL;
     }
 
     /// @dev swapELL swaps ELL approved by from by burning it
@@ -45,9 +53,15 @@ contract Main is DepositDIL {
             ell.allowance(from, address(this)) >= swapAmount,
             "Swap amount not unlocked"
         );
+        require(
+            ellSwapped + swapAmount <= maxSwappableELL,
+            "Total swappable ELL reached"
+        );
+
         ell.transferFrom(from, address(0), swapAmount);
         auc.mint(from, mintAmount);
         swapped += mintAmount;
+        ellSwapped += swapAmount;
         emit SwappedELL(from, swapAmount);
     }
 }
