@@ -5,7 +5,7 @@ const Dilithium = artifacts.require("Dilithium");
 const ELL = artifacts.require("../contracts/libs/ell/EIP20.sol");
 const truffleAssert = require("truffle-assertions");
 
-contract("Main", (accounts) => {
+contract("DILDeposit", (accounts) => {
 	let main, ell, dil, auc;
 	beforeEach(async () => {
 		ell = await ELL.new("150000000000", "Ellcrys Network Token", 18, "ELL", {

@@ -12,6 +12,7 @@ contract Main is DepositDIL {
     Dilithium public dil;
     EIP20 ell;
     Auction public auc;
+    uint256 public swapped;
 
     event SwappedELL(address account, uint256 amount);
 
@@ -33,7 +34,7 @@ contract Main is DepositDIL {
     /// the contract to transfer the swap amount.
     ///
     /// @param from is the account whose ELL will be burned for LTN.
-    /// @param swapAmount is the amount of ELL that from has approved to be burned.
+    /// @param swapAmount is the amount of ELL that 'from' has approved to be burned.
     /// @param mintAmount is the amount of LTN that the contract will swap burned ELL for.
     function swapELL(
         address from,
@@ -46,6 +47,7 @@ contract Main is DepositDIL {
         );
         ell.transferFrom(from, address(0), swapAmount);
         auc.mint(from, mintAmount);
+        swapped += mintAmount;
         emit SwappedELL(from, swapAmount);
     }
 }

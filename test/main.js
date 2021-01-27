@@ -49,6 +49,8 @@ contract("Main", (accounts) => {
 			it("should reduce ELL owner's balance and mint LTN of exact swap amount", async () => {
 				await ell.approve(main.address, 100, { from: accounts[3] });
 				const res = await main.swapELL(accounts[3], 100, 100);
+				expect((await main.swapped()).toNumber()).to.equal(100);
+
 				let ellBal = await ell.balanceOf(accounts[3]);
 				expect(ellBal.toString()).to.equal("149999999900");
 				let ltn = await Auction.at(await main.auc());
@@ -64,6 +66,7 @@ contract("Main", (accounts) => {
 			beforeEach(async () => {
 				await ell.approve(main.address, 100, { from: accounts[3] });
 				await main.swapELL(accounts[3], 50, 100);
+				expect((await main.swapped()).toNumber()).to.equal(100);
 			});
 
 			it("should reduce ELL owner's balance and mint LTN of exact swap amount", async () => {
