@@ -15,6 +15,7 @@ contract Main is DepositDIL {
     uint256 public swapped;
     uint256 public ellSwapped;
     uint256 public maxSwappableELL;
+    address public fundingAddress;
 
     event SwappedELL(address account, uint256 amount);
 
@@ -27,12 +28,32 @@ contract Main is DepositDIL {
         uint256 _maxSwappableELL,
         address _ellAddress,
         address _dilAddress,
-        address _aucAddress
+        address _aucAddress,
+        address _fundingAddress
     ) {
         dil = Dilithium(_dilAddress);
         ell = EIP20(_ellAddress);
         auc = Auction(_aucAddress);
         maxSwappableELL = _maxSwappableELL;
+        fundingAddress = _fundingAddress;
+    }
+
+    receive() external payable {}
+
+    fallback() external payable {}
+
+    /// @dev setFundingAddress sets the funding address
+    /// @param addr is the address to change to.
+    function setFundingAddress(address addr) public isOwner() {
+        fundingAddress = addr;
+    }
+
+    /// @dev withdraw sends ETH to the funding address.
+    /// @param amount is the amount to be withdrawn.
+    function withdraw(uint256 amount) external {
+        require(msg.sender == fundingAddress, "Sender not the funding address");
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
     }
 
     /// @dev swapELL swaps ELL approved by from by burning it

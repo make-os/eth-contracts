@@ -32,15 +32,15 @@ module.exports = async function (deployer, network, accounts) {
 	// Deploy main contract
 	const ELLContractAddr = "0x9d9aeea38de4643066bc09d3b210737b59af3a93";
 	const MaxSwappableELL = "18984565000000000000000000"; // 18984565
+	const FundingAddr = accounts[5];
 	await deployer.deploy(
 		Main,
 		MaxSwappableELL,
 		ELLContractAddr,
 		Dilithium.address,
 		Auction.address,
-		{
-			from: sender,
-		},
+		FundingAddr,
+		{ from: sender },
 	);
 
 	// Set auction contract owner

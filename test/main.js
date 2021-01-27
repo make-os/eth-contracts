@@ -7,7 +7,7 @@ const truffleAssert = require("truffle-assertions");
 
 contract("Main", (accounts) => {
 	let main, ell, dil, auc;
-	let ltnSupplyPerPeriod, maxPeriods, minBid, minDILSupply, maxSwappableELL;
+	let ltnSupplyPerPeriod, maxPeriods, minBid, minDILSupply, maxSwappableELL, fundingAddr;
 
 	beforeEach(async () => {
 		ltnSupplyPerPeriod = 100;
@@ -31,10 +31,71 @@ contract("Main", (accounts) => {
 		);
 
 		maxSwappableELL = 10000;
-		main = await Main.new(maxSwappableELL, ell.address, dil.address, auc.address, {
-			from: accounts[0],
-		});
+		fundingAddr = accounts[5];
+		main = await Main.new(
+			maxSwappableELL,
+			ell.address,
+			dil.address,
+			auc.address,
+			fundingAddr,
+			{
+				from: accounts[0],
+			},
+		);
 		await auc.setOwnerOnce(main.address, { from: accounts[0] });
+	});
+
+	describe(".setFundingAddress", async function () {
+		it("should revert if sender is not owner", async () => {
+			await truffleAssert.reverts(
+				main.setFundingAddress(accounts[6], { from: accounts[2] }),
+				"Sender is not owner",
+			);
+		});
+
+		it("should set new address if sender is owner", async () => {
+			expect(await main.fundingAddress()).to.equal(accounts[5]);
+			await main.setFundingAddress(accounts[6], { from: accounts[0] });
+			expect(await main.fundingAddress()).to.equal(accounts[6]);
+		});
+	});
+
+	describe.only(".withdraw", () => {
+		it("should revert with 'Sender not the funding address' if sender is not the funding address", async () => {
+			expect(await main.fundingAddress()).to.equal(accounts[5]);
+			await truffleAssert.reverts(
+				main.withdraw(1000, { from: accounts[0] }),
+				"Sender not the funding address",
+			);
+		});
+
+		it("should revert with 'Transfer failed' if contract balance is less than amount", async () => {
+			expect(await main.fundingAddress()).to.equal(accounts[5]);
+			await truffleAssert.reverts(
+				main.withdraw(1000, { from: accounts[5] }),
+				"Transfer failed",
+			);
+		});
+
+		it("should successfully transfer amount if contract balance is sufficient", async () => {
+			// send eth to contract
+			await main.sendTransaction({ from: accounts[0], value: web3.utils.toWei("10") });
+			expect(await web3.eth.getBalance(main.address)).to.equal(web3.utils.toWei("10"));
+
+			// get eth balance of funding address
+			let fundingAddrBal = await web3.eth.getBalance(accounts[5]);
+
+			// withdraw into funding address
+			await main.withdraw(web3.utils.toWei("5"), { from: accounts[5] });
+
+			// check that contract balance reduced
+			expect(await web3.eth.getBalance(main.address)).to.equal(web3.utils.toWei("5"));
+
+			// check that funding address increase
+			let curFundingAddrBal = await web3.eth.getBalance(accounts[5]);
+			expect(new web3.utils.BN(fundingAddrBal).lt(new web3.utils.BN(curFundingAddrBal)))
+				.to.be.true;
+		});
 	});
 
 	describe(".swapELL", async function () {
