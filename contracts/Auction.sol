@@ -65,7 +65,9 @@ contract Auction is Latinum {
         _;
     }
 
-    event NewAuctionPeriod(uint256 index, uint256 endTime);
+    event NewPeriod(uint256 index, uint256 endTime);
+    event NewBid(address addr, uint256 amount, uint256 periodIndex);
+    event NewClaim(address addr, uint256 amount, uint256 index);
 
     /// @notice The constructor
     /// @param _dilAddress is the address of the Dilithium contract.
@@ -109,7 +111,7 @@ contract Auction is Latinum {
             period = Period(block.timestamp + 24 hours, ltnSupplyPerPeriod, 0);
             periods.push(period);
             index = periods.length - 1;
-            emit NewAuctionPeriod(index, period.endTime);
+            emit NewPeriod(index, period.endTime);
         }
 
         // Get the current period or create a new one
@@ -123,7 +125,7 @@ contract Auction is Latinum {
             period = Period(period.endTime + 24 hours, ltnSupplyPerPeriod, 0);
             periods.push(period);
             index = periods.length - 1;
-            emit NewAuctionPeriod(index, period.endTime);
+            emit NewPeriod(index, period.endTime);
         }
 
         return (period, index);
@@ -161,6 +163,8 @@ contract Auction is Latinum {
         // Add a new claim
         claims[msg.sender].push(Claim(index, bidAmount));
 
+        emit NewBid(msg.sender, bidAmount, index);
+
         return true;
     }
 
@@ -195,6 +199,8 @@ contract Auction is Latinum {
             uint256 bps = Math.getBPSOfAInB(claim_.bid, period.totalBids);
             uint256 ltnReward = (period.ltnSupply * bps) / 10000;
             _mint(msg.sender, ltnReward);
+
+            emit NewClaim(msg.sender, ltnReward, claim_.period);
         }
 
         if (recentActive) {

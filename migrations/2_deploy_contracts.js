@@ -33,8 +33,10 @@ module.exports = async function (deployer, network, accounts) {
 	const ELLContractAddr = "0x9d9aeea38de4643066bc09d3b210737b59af3a93";
 	const MaxSwappableELL = "18984565000000000000000000"; // 18984565
 	const FundingAddr = accounts[5];
+	const DilDepositFee = "100000000000000000";
 	await deployer.deploy(
 		Main,
+		DilDepositFee,
 		MaxSwappableELL,
 		ELLContractAddr,
 		Dilithium.address,
@@ -45,4 +47,8 @@ module.exports = async function (deployer, network, accounts) {
 
 	// Set auction contract owner
 	await auc.setOwnerOnce(Main.address, { from: sender });
+
+	// Set dilithium contract owner
+	const dil = await Dilithium.deployed();
+	await dil.setOwnerOnce(Main.address, { from: sender });
 };

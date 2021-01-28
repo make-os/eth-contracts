@@ -61,7 +61,7 @@ contract("Auction", (accounts) => {
 				);
 			});
 
-			it("should emit 'NewAuctionPeriod' event, add a new period and set its endTime to next 24 hours", async () => {
+			it("should emit 'NewPeriod' event, add a new period and set its endTime to next 24 hours", async () => {
 				await advanceTime(0);
 				ins = await Auction.new(
 					dil.address,
@@ -74,7 +74,7 @@ contract("Auction", (accounts) => {
 				await dil.mint(accounts[0], minDILSupply);
 				let res = await ins.makePeriod();
 
-				expect(res.logs[0].event).to.equal("NewAuctionPeriod");
+				expect(res.logs[0].event).to.equal("NewPeriod");
 				expect(res.logs).to.have.lengthOf(1);
 				expect(res.logs[0].args.index.toNumber()).to.equal(0);
 				const endTime = dayjs.unix(res.logs[0].args.endTime.toNumber());

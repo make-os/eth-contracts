@@ -7,7 +7,13 @@ const truffleAssert = require("truffle-assertions");
 
 contract("DILDeposit", (accounts) => {
 	let main, ell, dil, auc;
-	let ltnSupplyPerPeriod, minDILSupply, maxPeriods, minBid, maxSwappableELL;
+	let ltnSupplyPerPeriod,
+		minDILSupply,
+		maxPeriods,
+		minBid,
+		maxSwappableELL,
+		fundingAddr,
+		dilDepositFee;
 
 	beforeEach(async () => {
 		ell = await ELL.new("150000000000", "Ellcrys Network Token", 18, "ELL", {
@@ -30,57 +36,49 @@ contract("DILDeposit", (accounts) => {
 		);
 
 		maxSwappableELL = 10000;
-		main = await Main.new(maxSwappableELL, ell.address, dil.address, auc.address, {
-			from: accounts[0],
-		});
+		fundingAddr = accounts[5];
+		dilDepositFee = web3.utils.toWei("0.00001", "ether");
+		main = await Main.new(
+			dilDepositFee,
+			maxSwappableELL,
+			ell.address,
+			dil.address,
+			auc.address,
+			fundingAddr,
+			{ from: accounts[0] },
+		);
 		await auc.setOwnerOnce(main.address, { from: accounts[0] });
+		await dil.setOwnerOnce(main.address, { from: accounts[0] });
 	});
 
-	describe(".setMintFee", async function () {
-		it("should set mint fee successfully", async () => {
-			let fee = await main.mintFee.call();
-			expect(fee.toString()).to.equal("100000000000000000");
-			await main.setMintFee(1234);
-			fee = await main.mintFee.call();
+	describe(".setDepositFee", async function () {
+		it("should set deposit fee successfully", async () => {
+			let fee = await main.depositFee.call();
+			expect(fee.toString()).to.equal(dilDepositFee);
+			await main.setDepositFee(1234);
+			fee = await main.depositFee.call();
 			expect(fee.toNumber()).to.equal(1234);
 		});
 	});
 
-	describe(".setLimit", async function () {
-		it("should set limit successfully", async () => {
-			let fee = await main.limit.call();
-			expect(fee.toString()).to.equal("50000");
-			await main.setLimit(1234);
-			fee = await main.limit.call();
-			expect(fee.toNumber()).to.equal(1234);
-		});
-	});
-
-	describe(".getDILBalance", async function () {
+	describe(".totalDepositedDIL", async function () {
 		it("should return zero (0) if no DIL has been minted for an address", async () => {
-			const res = await main.getDILBalance.call(accounts[1]);
+			const res = await main.totalDepositedDIL.call(accounts[1]);
 			expect(res.toNumber()).to.equal(0);
 		});
 	});
 
-	describe(".getNextMintLimit", async function () {
-		it("should return zero (0) if no DIL has been minted for an address", async () => {
-			const res = await main.getNextMintLimit.call(accounts[1]);
-			expect(res.toNumber()).to.equal(0);
-		});
-	});
-
-	describe(".mint", async () => {
+	describe(".mintDIL", async () => {
 		it("should revert when sender is not owner", async () => {
 			await truffleAssert.reverts(
-				main.mint.call(accounts[1], 100, { from: accounts[1] }),
+				main.mintDIL(accounts[1], 100, { from: accounts[1] }),
 				"Sender is not owner",
 			);
 		});
 
 		describe("when minting for the first time", async () => {
 			beforeEach(async () => {
-				const res = await main.mint(accounts[1], 1000, { from: accounts[0] });
+				const res = await main.mintDIL(accounts[1], 1000, { from: accounts[0] });
 				expect(res.logs).to.have.lengthOf(1);
 				expect(res.logs[0].event).to.equal("DILMinted");
 				expect(res.logs[0].args["recipient"]).to.equal(accounts[1]);
@@ -88,98 +86,44 @@ contract("DILDeposit", (accounts) => {
 			});
 
 			it("should mint and allocate the provided balance", async () => {
-				const curBal = await main.getDILBalance.call(accounts[1]);
+				const curBal = await main.totalDepositedDIL.call(accounts[1]);
 				expect(curBal.toNumber()).to.equal(1000);
-			});
-
-			it("should set the next limit to 1x mint limit", async () => {
-				const limit = await main.limit.call();
-				const nextLimit = await main.getNextMintLimit.call(accounts[1]);
-				expect(nextLimit.toNumber()).to.equal(limit.toNumber());
+				expect((await dil.balanceOf(accounts[1])).toNumber()).to.equal(1000);
 			});
 		});
 
-		describe("when minting for the n+1 times with mint amount less than the recipient next limit", async () => {
+		describe("when minting for the n>1 times with the correct deposit fee", async () => {
 			beforeEach(async () => {
-				await main.mint(accounts[1], 1000, { from: accounts[0] });
-				await main.mint(accounts[1], 1000, { from: accounts[0] });
+				await main.mintDIL(accounts[1], 1000, { from: accounts[0] });
+				const depFee = new web3.utils.BN(1000).mul(new web3.utils.BN(dilDepositFee));
+				await main.mintDIL(accounts[1], 1000, { from: accounts[0], value: depFee });
 			});
 
 			it("should mint and allocate the provided balance", async () => {
-				const curBal = await main.getDILBalance.call(accounts[1]);
+				const curBal = await main.totalDepositedDIL.call(accounts[1]);
 				expect(curBal.toNumber()).to.equal(2000);
-			});
-
-			it("should not reset the next limit", async () => {
-				const limit = await main.limit.call();
-				const nextLimit = await main.getNextMintLimit.call(accounts[1]);
-				expect(nextLimit.toNumber()).to.equal(limit.toNumber());
+				expect((await dil.balanceOf(accounts[1])).toNumber()).to.equal(2000);
 			});
 		});
 
-		describe("when minting for the first time with a mint amount greater than the default limit", async () => {
-			it("should successfully mint and allocate to recipient", async () => {
-				const limit = await main.limit.call();
-				const res = await main.mint(accounts[1], limit.toNumber() + 1, {
-					from: accounts[0],
-				});
-				expect(res.logs).to.have.lengthOf(1);
-				expect(res.logs[0].event).to.equal("DILMinted");
-				expect(res.logs[0].args["recipient"]).to.equal(accounts[1]);
-				expect(res.logs[0].args["amt"].toNumber()).to.equal(limit.toNumber() + 1);
-			});
-		});
-
-		describe("when mint amount is greater than the recipient next limit and no mint fee is sent", async () => {
+		describe("when minting for the n>1 times with less than the correct deposit fee", async () => {
 			beforeEach(async () => {
-				await main.mint(accounts[1], 1000, { from: accounts[0] });
+				await main.mintDIL(accounts[1], 1000, { from: accounts[0] });
 			});
 
-			it("should revert due to insufficient mint fee", async () => {
-				const limit = await main.limit.call();
+			it("should revert with 'Insufficient deposit fee'", async () => {
+				const depFee = new web3.utils.BN(1000).mul(new web3.utils.BN(dilDepositFee));
 				await truffleAssert.reverts(
-					main.mint(accounts[1], 1 + limit.toNumber(), { from: accounts[0] }),
-					"Insufficient mint fee",
-				);
-			});
-		});
-
-		describe("when mint amount is greater than the recipient next limit and insufficient mint fee is sent", async () => {
-			beforeEach(async () => {
-				await main.mint(accounts[1], 1000, { from: accounts[0] });
-			});
-
-			it("should revert due to insufficient mint fee", async () => {
-				const limit = await main.limit.call();
-				await truffleAssert.reverts(
-					main.mint(accounts[1], 1 + limit.toNumber(), {
+					main.mintDIL(accounts[1], 1000, {
 						from: accounts[0],
-						value: new web3.utils.BN(web3.utils.toWei("0.001", "ether")),
+						value: depFee.sub(new web3.utils.BN("1")),
 					}),
-					"Insufficient mint fee",
+					"Insufficient deposit fee",
 				);
-			});
-		});
 
-		describe("when mint amount is greater than the recipient next limit and sufficient mint fee is sent", async () => {
-			beforeEach(async () => {
-				await main.mint(accounts[1], 1000, { from: accounts[0] });
-			});
-
-			it("should revert due to insufficient mint fee", async () => {
-				const limit = await main.limit.call();
-				const mintFee = await main.mintFee.call();
-				const res = await main.mint(accounts[1], 1 + limit.toNumber(), {
-					from: accounts[0],
-					value: mintFee,
-				});
-				expect(res.logs).to.have.lengthOf(1);
-				expect(res.logs[0].event).to.equal("DILMinted");
-				expect(res.logs[0].args["recipient"]).to.equal(accounts[1]);
-				expect(res.logs[0].args["amt"].toNumber()).to.equal(limit.toNumber() + 1);
-
-				const curBal = await main.getDILBalance.call(accounts[1]);
-				expect(curBal.toNumber()).to.equal(1000 + 1 + limit.toNumber());
+				const curBal = await main.totalDepositedDIL.call(accounts[1]);
+				expect(curBal.toNumber()).to.equal(1000);
+				expect((await dil.balanceOf(accounts[1])).toNumber()).to.equal(1000);
 			});
 		});
 	});

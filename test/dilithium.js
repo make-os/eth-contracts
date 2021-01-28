@@ -59,4 +59,30 @@ contract("Dilithium", (accounts) => {
 			expect(bal).to.equal(100);
 		});
 	});
+	
+	describe(".setOwnerOnce", () => {
+		it("should revert if sender is not the current/default owner", async () => {
+			expect(await ins.owner()).to.equal(accounts[0]);
+			await truffleAssert.reverts(
+				ins.setOwnerOnce(accounts[1], { from: accounts[2] }),
+				"Sender is not owner",
+			);
+		});
+
+		it("should change the owner if the method has not be called before", async () => {
+			expect(await ins.owner()).to.equal(accounts[0]);
+			const res = await ins.setOwnerOnce(accounts[1]);
+			expect(await ins.owner()).to.equal(accounts[1]);
+		});
+
+		it("should revert if the method has already been called before", async () => {
+			expect(await ins.owner()).to.equal(accounts[0]);
+			const res = await ins.setOwnerOnce(accounts[1]);
+			expect(await ins.owner()).to.equal(accounts[1]);
+			await truffleAssert.reverts(
+				ins.setOwnerOnce(accounts[0], { from: accounts[1] }),
+				"Owner already set",
+			);
+		});
+	});
 });

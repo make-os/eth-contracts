@@ -7,7 +7,13 @@ const truffleAssert = require("truffle-assertions");
 
 contract("Main", (accounts) => {
 	let main, ell, dil, auc;
-	let ltnSupplyPerPeriod, maxPeriods, minBid, minDILSupply, maxSwappableELL, fundingAddr;
+	let ltnSupplyPerPeriod,
+		maxPeriods,
+		minBid,
+		minDILSupply,
+		maxSwappableELL,
+		fundingAddr,
+		dilDepositFee;
 
 	beforeEach(async () => {
 		ltnSupplyPerPeriod = 100;
@@ -32,7 +38,9 @@ contract("Main", (accounts) => {
 
 		maxSwappableELL = 10000;
 		fundingAddr = accounts[5];
+		dilDepositFee = "100000000000000000";
 		main = await Main.new(
+			dilDepositFee,
 			maxSwappableELL,
 			ell.address,
 			dil.address,
@@ -60,7 +68,7 @@ contract("Main", (accounts) => {
 		});
 	});
 
-	describe.only(".withdraw", () => {
+	describe(".withdraw", () => {
 		it("should revert with 'Sender not the funding address' if sender is not the funding address", async () => {
 			expect(await main.fundingAddress()).to.equal(accounts[5]);
 			await truffleAssert.reverts(

@@ -9,7 +9,6 @@ import "./libs/ell/EIP20.sol";
 
 /// @title Main
 contract Main is DepositDIL {
-    Dilithium public dil;
     EIP20 ell;
     Auction public auc;
     uint256 public swapped;
@@ -20,22 +19,26 @@ contract Main is DepositDIL {
     event SwappedELL(address account, uint256 amount);
 
     /// @dev initializes the contract
+    /// @param _dilDepositFee is the DIL deposit fee.
     /// @param _maxSwappableELL max. number of ELL that can be swapped.
     /// @param _ellAddress is the contract address of the ELL token.
     /// @param _dilAddress is the contract address of the DIL token.
     /// @param _aucAddress is the contract address of the auction and LTN token.
     constructor(
+        uint256 _dilDepositFee,
         uint256 _maxSwappableELL,
         address _ellAddress,
         address _dilAddress,
         address _aucAddress,
         address _fundingAddress
     ) {
-        dil = Dilithium(_dilAddress);
         ell = EIP20(_ellAddress);
         auc = Auction(_aucAddress);
+        dil = Dilithium(_dilAddress);
+        setDilInstance(dil);
         maxSwappableELL = _maxSwappableELL;
         fundingAddress = _fundingAddress;
+        setDepositFee(_dilDepositFee);
     }
 
     receive() external payable {}
