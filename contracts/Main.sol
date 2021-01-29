@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >0.4.25 <0.9.0;
+pragma solidity ^0.6.6;
 
 import "./DepositDIL.sol";
 import "./Owner.sol";
 import "./Dilithium.sol";
 import "./Auction.sol";
 import "./libs/ell/EIP20.sol";
+import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
 /// @title Main
 contract Main is DepositDIL {
@@ -31,7 +33,7 @@ contract Main is DepositDIL {
         address _dilAddress,
         address _aucAddress,
         address _fundingAddress
-    ) {
+    ) public {
         ell = EIP20(_ellAddress);
         auc = Auction(_aucAddress);
         dil = Dilithium(_dilAddress);
@@ -88,4 +90,7 @@ contract Main is DepositDIL {
         ellSwapped += swapAmount;
         emit SwappedELL(from, swapAmount);
     }
+
+    /// @dev createPools creates LTN/ETH and DIL/ETH uniswap pools.
+    function createPools() external {}
 }

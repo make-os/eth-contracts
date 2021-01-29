@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.6.6;
 
 abstract contract EIP20Interface {
     /* This is a slight change to the ERC20 base standard.

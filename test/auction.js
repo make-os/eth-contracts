@@ -48,7 +48,7 @@ contract("Auction", (accounts) => {
 		describe("when no period exists", () => {
 			it("should revert with 'Minimum Dilithium supply not reached' when total DIL supply is less than the minimum required supply", async () => {
 				await advanceTime(0);
-				ins = await Auction.new(
+				auc = await Auction.new(
 					dil.address,
 					minDILSupply,
 					maxPeriods,
@@ -63,7 +63,7 @@ contract("Auction", (accounts) => {
 
 			it("should emit 'NewPeriod' event, add a new period and set its endTime to next 24 hours", async () => {
 				await advanceTime(0);
-				ins = await Auction.new(
+				auc = await Auction.new(
 					dil.address,
 					minDILSupply,
 					maxPeriods,
@@ -85,7 +85,7 @@ contract("Auction", (accounts) => {
 
 			it("should add a new period and set LTN supply", async () => {
 				await advanceTime(0);
-				ins = await Auction.new(
+				auc = await Auction.new(
 					dil.address,
 					minDILSupply,
 					maxPeriods,
@@ -104,7 +104,7 @@ contract("Auction", (accounts) => {
 
 		it("should not add another period if the last period has not ended", async () => {
 			await advanceTime(0);
-			ins = await Auction.new(
+			auc = await Auction.new(
 				dil.address,
 				minDILSupply,
 				maxPeriods,
@@ -121,7 +121,7 @@ contract("Auction", (accounts) => {
 
 		it("should revert with 'Auction has closed' if max number periods have been created", async () => {
 			await advanceTime(0);
-			ins = await Auction.new(
+			auc = await Auction.new(
 				dil.address,
 				minDILSupply,
 				maxPeriods,
@@ -170,7 +170,7 @@ contract("Auction", (accounts) => {
 	describe(".bid", () => {
 		it("should revert with 'Auction has closed' if auction has closed (last period ended)", async () => {
 			maxPeriods = 1;
-			ins = await Auction.new(
+			auc = await Auction.new(
 				dil.address,
 				minDILSupply,
 				maxPeriods,
@@ -186,7 +186,7 @@ contract("Auction", (accounts) => {
 
 		it("should revert with 'Amount not unlocked' if bid amount has not been unlocked", async () => {
 			maxPeriods = 1;
-			ins = await Auction.new(
+			auc = await Auction.new(
 				dil.address,
 				minDILSupply,
 				maxPeriods,
@@ -199,7 +199,7 @@ contract("Auction", (accounts) => {
 		it("should revert with 'Bid amount too small' if bid amount is <= minBid", async () => {
 			maxPeriods = 1;
 			minBid = 1000;
-			ins = await Auction.new(
+			auc = await Auction.new(
 				dil.address,
 				minDILSupply,
 				maxPeriods,
@@ -222,7 +222,7 @@ contract("Auction", (accounts) => {
 		describe("when bidder unlocked the bid amount", () => {
 			beforeEach(async () => {
 				maxPeriods = 1;
-				ins = await Auction.new(
+				auc = await Auction.new(
 					dil.address,
 					minDILSupply,
 					maxPeriods,
@@ -259,7 +259,7 @@ contract("Auction", (accounts) => {
 		describe("when sender bids thrice. 2 in same period and 1 in another period", () => {
 			beforeEach(async () => {
 				maxPeriods = 2;
-				ins = await Auction.new(
+				auc = await Auction.new(
 					dil.address,
 					minDILSupply,
 					maxPeriods,
@@ -305,7 +305,7 @@ contract("Auction", (accounts) => {
 
 		describe("when an account has more than 5 unprocessed claims", () => {
 			it("should revert with 'Too many unprocessed claims'", async () => {
-				ins = await Auction.new(
+				auc = await Auction.new(
 					dil.address,
 					minDILSupply,
 					maxPeriods,
@@ -375,7 +375,7 @@ contract("Auction", (accounts) => {
 		describe("within a period", () => {
 			describe("when only one bid is received", () => {
 				it("should allocate all period supply to the only bidder", async () => {
-					ins = await Auction.new(
+					auc = await Auction.new(
 						dil.address,
 						minDILSupply,
 						maxPeriods,
@@ -395,7 +395,7 @@ contract("Auction", (accounts) => {
 				});
 
 				it("should not allocate period supply when period has not ended", async () => {
-					ins = await Auction.new(
+					auc = await Auction.new(
 						dil.address,
 						minDILSupply,
 						maxPeriods,
@@ -416,7 +416,7 @@ contract("Auction", (accounts) => {
 
 			describe("when there are two bids from same account", () => {
 				it("should allocate 100% of period supply to the only bidder", async () => {
-					ins = await Auction.new(
+					auc = await Auction.new(
 						dil.address,
 						minDILSupply,
 						maxPeriods,
@@ -439,7 +439,7 @@ contract("Auction", (accounts) => {
 
 			describe("when there are three bids from different accounts", () => {
 				it("should respectively allocate 357,500,142 of period supply account 1,2,3", async () => {
-					ins = await Auction.new(
+					auc = await Auction.new(
 						dil.address,
 						minDILSupply,
 						maxPeriods,
@@ -475,7 +475,7 @@ contract("Auction", (accounts) => {
 
 			describe("when an account claims are deleted, other account claims should not be affected", () => {
 				it("should not affect other account claims", async () => {
-					ins = await Auction.new(
+					auc = await Auction.new(
 						dil.address,
 						minDILSupply,
 						maxPeriods,
@@ -515,7 +515,7 @@ contract("Auction", (accounts) => {
 		describe("within two or more periods", () => {
 			describe("when only one bid is received per period", () => {
 				it("should allocate 100% of both periods supply to the only bidder", async () => {
-					ins = await Auction.new(
+					auc = await Auction.new(
 						dil.address,
 						minDILSupply,
 						maxPeriods,

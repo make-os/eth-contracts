@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >0.4.25 <0.9.0;
+pragma solidity ^0.6.6;
 
 contract Owner {
     address public owner;
@@ -9,7 +9,7 @@ contract Owner {
     event LogAddr(address s);
     event LogInt(uint256 i);
 
-    constructor() {
+    constructor() public {
         owner = msg.sender;
     }
 

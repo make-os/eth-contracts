@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >0.4.25 <0.9.0;
+pragma solidity ^0.6.6;
 
 import "./Owner.sol";
 import "./Dilithium.sol";
@@ -46,7 +46,7 @@ contract DepositDIL is Owner {
         // Require a deposit fee to be sent. Total deposit fee
         // is depositFee * amount to be deposited.
         require(
-            msg.value >= SafeMath.mul(depositFee, amt),
+            msg.value >= SM.mul(depositFee, amt),
             "Insufficient deposit fee"
         );
 
@@ -58,7 +58,7 @@ contract DepositDIL is Owner {
     /// @dev transferDIL transfer mints DIL on the DIL token contract.
     function transferDIL(address to, uint256 amount) internal {
         uint256 curBal = deposited[to].balance;
-        deposited[to].balance = SafeMath.add(curBal, amount);
+        deposited[to].balance = SM.add(curBal, amount);
         dil.mint(to, amount);
         emit DILMinted(to, amount);
     }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >0.4.25 <0.9.0;
+pragma solidity ^0.6.6;
 
 import "./SafeMath.sol";
 
@@ -18,9 +18,9 @@ library Math {
         returns (uint256)
     {
         uint256 scale = 10**18;
-        uint256 scaledA = SafeMath.mul(a, scale);
-        uint256 x = SafeMath.mul(SafeMath.div(scaledA, b), 100);
-        uint256 bps = SafeMath.div(SafeMath.mul(x, 100), scale);
+        uint256 scaledA = SM.mul(a, scale);
+        uint256 x = SM.mul(SM.div(scaledA, b), 100);
+        uint256 bps = SM.div(SM.mul(x, 100), scale);
         return bps;
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >0.4.25 <0.9.0;
+pragma solidity ^0.6.6;
 
 import "./Latinum.sol";
 import "./Dilithium.sol";
@@ -82,7 +82,7 @@ contract Auction is Latinum {
         int256 _maxPeriods,
         uint256 _ltnSupplyPerPeriod,
         uint256 _minBid
-    ) {
+    ) public {
         dil = Dilithium(_dilAddress);
         minBid = _minBid;
         maxPeriods = _maxPeriods;
@@ -129,7 +129,7 @@ contract Auction is Latinum {
 
     /// @dev updatePeriodTotalBids updates the total bid of a period.
     function updatePeriodTotalBids(uint256 idx, uint256 newBid) internal {
-        periods[idx].totalBids = SafeMath.add(periods[idx].totalBids, newBid);
+        periods[idx].totalBids = SM.add(periods[idx].totalBids, newBid);
     }
 
     /// @notice bid lets an account place a bid.
@@ -224,10 +224,7 @@ contract Auction is Latinum {
         Period memory period = periods[index];
         uint256 scale = 10**18;
         uint256 dilLtnPrice =
-            SafeMath.div(
-                SafeMath.mul(period.ltnSupply, scale),
-                period.totalBids
-            );
-        return SafeMath.div(SafeMath.mul(depositFee, scale), dilLtnPrice);
+            SM.div(SM.mul(period.ltnSupply, scale), period.totalBids);
+        return SM.div(SM.mul(depositFee, scale), dilLtnPrice);
     }
 }

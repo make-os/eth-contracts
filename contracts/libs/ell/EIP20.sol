@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.6.6;
 
 import "./EIP20Interface.sol";
 
@@ -21,7 +21,7 @@ contract EIP20 is EIP20Interface {
         string memory _tokenName,
         uint8 _decimalUnits,
         string memory _tokenSymbol
-    ) {
+    ) public {
         balances[msg.sender] = _initialAmount; // Give the creator all initial tokens
         totalSupply = _initialAmount; // Update total supply
         name = _tokenName; // Set the name for display purposes
