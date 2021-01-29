@@ -93,11 +93,7 @@ contract Auction is Latinum {
     /// @notice makePeriod creates and returns a period. If the
     /// most recent period has not ended, it is returned instead
     /// of creating a new one.
-    function makePeriod()
-        public
-        isAuctionClosed()
-        returns (Period memory, uint256)
-    {
+    function makePeriod() public isAuctionClosed() returns (uint256) {
         require(
             periods.length > 0 || dil.totalSupply() >= minReqDILSupply,
             "Minimum Dilithium supply not reached"
@@ -128,7 +124,7 @@ contract Auction is Latinum {
             emit NewPeriod(index, period.endTime);
         }
 
-        return (period, index);
+        return index;
     }
 
     /// @dev updatePeriodTotalBids updates the total bid of a period.
@@ -149,9 +145,7 @@ contract Auction is Latinum {
         require(getNumOfClaims() + 1 <= 5, "Too many unprocessed claims");
 
         // Get the current period
-        Period memory period;
-        uint256 index;
-        (period, index) = makePeriod();
+        uint256 index = makePeriod();
 
         // Burn the the bid amount
         dil.transferFrom(msg.sender, address(this), bidAmount);
@@ -211,5 +205,29 @@ contract Auction is Latinum {
         } else {
             delete claims[msg.sender];
         }
+    }
+
+    /// @dev getLTNPriceInPeriod calculates LTN price based on state of a period and
+    /// a Dilithium deposit fee value. This is meant to be used as a price
+    /// suggestion for a given period.
+    /// @param index is the index of a period.
+    /// @param depositFee is the cost of depositing into the Dilithium token
+    /// contract.
+    /// @return the price in wei.
+    function getLTNPriceInPeriod(uint256 index, uint256 depositFee)
+        public
+        view
+        returns (uint256)
+    {
+        uint256 numPeriods = periods.length;
+        require(numPeriods > 0 && numPeriods - 1 <= index, "Invalid index");
+        Period memory period = periods[index];
+        uint256 scale = 10**18;
+        uint256 dilLtnPrice =
+            SafeMath.div(
+                SafeMath.mul(period.ltnSupply, scale),
+                period.totalBids
+            );
+        return SafeMath.div(SafeMath.mul(depositFee, scale), dilLtnPrice);
     }
 }

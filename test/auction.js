@@ -25,7 +25,7 @@ advanceTime = (time) => {
 };
 
 contract("Auction", (accounts) => {
-	let ins, dil;
+	let auc, dil;
 	let ltnSupplyPerPeriod, minDILSupply, maxPeriods, minBid;
 
 	beforeEach(async () => {
@@ -35,7 +35,7 @@ contract("Auction", (accounts) => {
 		maxPeriods = 2;
 		minBid = 100;
 		minDILSupply = 100;
-		ins = await Auction.new(
+		auc = await Auction.new(
 			dil.address,
 			minDILSupply,
 			maxPeriods,
@@ -56,7 +56,7 @@ contract("Auction", (accounts) => {
 					minBid,
 				);
 				await truffleAssert.reverts(
-					ins.makePeriod(),
+					auc.makePeriod(),
 					"Minimum Dilithium supply not reached",
 				);
 			});
@@ -72,7 +72,7 @@ contract("Auction", (accounts) => {
 				);
 
 				await dil.mint(accounts[0], minDILSupply);
-				let res = await ins.makePeriod();
+				let res = await auc.makePeriod();
 
 				expect(res.logs[0].event).to.equal("NewPeriod");
 				expect(res.logs).to.have.lengthOf(1);
@@ -80,7 +80,7 @@ contract("Auction", (accounts) => {
 				const endTime = dayjs.unix(res.logs[0].args.endTime.toNumber());
 				const now = dayjs();
 				expect(endTime.unix() - now.unix()).to.be.at.least(86390);
-				expect((await ins.getNumOfPeriods()).toNumber()).to.equal(1);
+				expect((await auc.getNumOfPeriods()).toNumber()).to.equal(1);
 			});
 
 			it("should add a new period and set LTN supply", async () => {
@@ -94,10 +94,10 @@ contract("Auction", (accounts) => {
 				);
 
 				await dil.mint(accounts[0], minDILSupply);
-				let res = await ins.makePeriod();
+				let res = await auc.makePeriod();
 
-				expect((await ins.getNumOfPeriods()).toNumber()).to.equal(1);
-				const period = await ins.periods(0);
+				expect((await auc.getNumOfPeriods()).toNumber()).to.equal(1);
+				const period = await auc.periods(0);
 				expect(period.ltnSupply.toNumber()).to.equal(ltnSupplyPerPeriod);
 			});
 		});
@@ -113,10 +113,10 @@ contract("Auction", (accounts) => {
 			);
 
 			await dil.mint(accounts[0], minDILSupply);
-			let res = await ins.makePeriod();
+			let res = await auc.makePeriod();
 
-			await ins.makePeriod();
-			expect((await ins.getNumOfPeriods()).toNumber()).to.equal(1);
+			await auc.makePeriod();
+			expect((await auc.getNumOfPeriods()).toNumber()).to.equal(1);
 		});
 
 		it("should revert with 'Auction has closed' if max number periods have been created", async () => {
@@ -130,14 +130,14 @@ contract("Auction", (accounts) => {
 			);
 
 			await dil.mint(accounts[0], minDILSupply);
-			let res = await ins.makePeriod();
+			let res = await auc.makePeriod();
 
 			await advanceTime(86400);
-			await ins.makePeriod();
-			expect((await ins.getNumOfPeriods()).toNumber()).to.equal(2);
+			await auc.makePeriod();
+			expect((await auc.getNumOfPeriods()).toNumber()).to.equal(2);
 
 			await advanceTime(86400);
-			await truffleAssert.reverts(ins.makePeriod(), "Auction has closed");
+			await truffleAssert.reverts(auc.makePeriod(), "Auction has closed");
 		});
 	});
 
@@ -147,8 +147,8 @@ contract("Auction", (accounts) => {
 				// approve bid amount
 				await dil.mint(account, amount);
 				expect((await dil.balanceOf(account)).toNumber()).to.equal(amount);
-				await dil.approve(ins.address, amount, { from: account });
-				expect((await dil.allowance(account, ins.address)).toNumber()).to.equal(amount);
+				await dil.approve(auc.address, amount, { from: account });
+				expect((await dil.allowance(account, auc.address)).toNumber()).to.equal(amount);
 				res();
 			} catch (error) {
 				rej(error);
@@ -159,7 +159,7 @@ contract("Auction", (accounts) => {
 	function bid(account, amount) {
 		return new Promise(async (res, rej) => {
 			try {
-				await ins.bid(amount, { from: account });
+				await auc.bid(amount, { from: account });
 				res();
 			} catch (error) {
 				rej(error);
@@ -179,9 +179,9 @@ contract("Auction", (accounts) => {
 			);
 
 			await dil.mint(accounts[0], minDILSupply);
-			let res = await ins.makePeriod();
+			let res = await auc.makePeriod();
 			await advanceTime(86600);
-			await truffleAssert.reverts(ins.bid(1000), "Auction has closed");
+			await truffleAssert.reverts(auc.bid(1000), "Auction has closed");
 		});
 
 		it("should revert with 'Amount not unlocked' if bid amount has not been unlocked", async () => {
@@ -193,7 +193,7 @@ contract("Auction", (accounts) => {
 				ltnSupplyPerPeriod,
 				minBid,
 			);
-			await truffleAssert.reverts(ins.bid(1000), "Amount not unlocked");
+			await truffleAssert.reverts(auc.bid(1000), "Amount not unlocked");
 		});
 
 		it("should revert with 'Bid amount too small' if bid amount is <= minBid", async () => {
@@ -210,11 +210,11 @@ contract("Auction", (accounts) => {
 			await unlock(accounts[1], 999);
 
 			await truffleAssert.reverts(
-				ins.bid(0, { from: accounts[1] }),
+				auc.bid(0, { from: accounts[1] }),
 				"Bid amount too small",
 			);
 			await truffleAssert.reverts(
-				ins.bid(999, { from: accounts[1] }),
+				auc.bid(999, { from: accounts[1] }),
 				"Bid amount too small",
 			);
 		});
@@ -233,25 +233,25 @@ contract("Auction", (accounts) => {
 				await unlock(accounts[1], 1000);
 
 				// place bid
-				await ins.bid(1000, { from: accounts[1] });
+				await auc.bid(1000, { from: accounts[1] });
 			});
 
 			it("should create a period", async () => {
-				expect((await ins.getNumOfPeriods()).toNumber()).to.equal(1);
-				const period = await ins.periods(0);
+				expect((await auc.getNumOfPeriods()).toNumber()).to.equal(1);
+				const period = await auc.periods(0);
 				expect(period.ltnSupply.toNumber()).to.equal(ltnSupplyPerPeriod);
 				expect(period.totalBids.toNumber()).to.equal(1000);
 			});
 
 			it("should add a claim", async () => {
-				expect((await ins.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(1);
-				const claim = await ins.claims(accounts[1], 0);
+				expect((await auc.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(1);
+				const claim = await auc.claims(accounts[1], 0);
 				expect(claim.period.toNumber()).to.equal(0);
 				expect(claim.bid.toNumber()).to.equal(1000);
 			});
 
 			it("should destroy bid amount from sender DIL balance", async () => {
-				expect((await dil.allowance(accounts[1], ins.address)).toNumber()).to.equal(0);
+				expect((await dil.allowance(accounts[1], auc.address)).toNumber()).to.equal(0);
 				expect((await dil.balanceOf(accounts[1])).toNumber()).to.equal(0);
 			});
 		});
@@ -270,34 +270,34 @@ contract("Auction", (accounts) => {
 				await unlock(accounts[1], 1500);
 
 				// place bids
-				await ins.bid(500, { from: accounts[1] });
-				await ins.bid(500, { from: accounts[1] });
+				await auc.bid(500, { from: accounts[1] });
+				await auc.bid(500, { from: accounts[1] });
 				await advanceTime(86500);
-				await ins.bid(500, { from: accounts[1] });
+				await auc.bid(500, { from: accounts[1] });
 			});
 
 			it("should create a period", async () => {
-				expect((await ins.getNumOfPeriods()).toNumber()).to.equal(2);
-				let period = await ins.periods(0);
+				expect((await auc.getNumOfPeriods()).toNumber()).to.equal(2);
+				let period = await auc.periods(0);
 				expect(period.ltnSupply.toNumber()).to.equal(ltnSupplyPerPeriod);
 				expect(period.totalBids.toNumber()).to.equal(1000);
 
-				period = await ins.periods(1);
+				period = await auc.periods(1);
 				expect(period.ltnSupply.toNumber()).to.equal(ltnSupplyPerPeriod);
 				expect(period.totalBids.toNumber()).to.equal(500);
 			});
 
 			it("should add three claims of 500 each for the sender", async () => {
-				expect((await ins.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(3);
-				let claim = await ins.claims(accounts[1], 0);
+				expect((await auc.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(3);
+				let claim = await auc.claims(accounts[1], 0);
 				expect(claim.period.toNumber()).to.equal(0);
 				expect(claim.bid.toNumber()).to.equal(500);
 
-				claim = await ins.claims(accounts[1], 1);
+				claim = await auc.claims(accounts[1], 1);
 				expect(claim.period.toNumber()).to.equal(0);
 				expect(claim.bid.toNumber()).to.equal(500);
 
-				claim = await ins.claims(accounts[1], 2);
+				claim = await auc.claims(accounts[1], 2);
 				expect(claim.period.toNumber()).to.equal(1);
 				expect(claim.bid.toNumber()).to.equal(500);
 			});
@@ -318,9 +318,50 @@ contract("Auction", (accounts) => {
 				await bid(accounts[1], 100);
 				await bid(accounts[1], 100);
 				await bid(accounts[1], 100);
-				expect((await ins.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(5);
+				expect((await auc.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(5);
 				await truffleAssert.reverts(bid(accounts[1], 100), "Too many unprocessed claims");
 			});
+		});
+	});
+
+	describe(".getLTNPriceInPeriod", async function () {
+		it("should revert if no period at the given index", async () => {
+			await truffleAssert.reverts(auc.getLTNPriceInPeriod(1, 0), "Invalid index");
+			await truffleAssert.reverts(auc.getLTNPriceInPeriod(0, 0), "Invalid index");
+		});
+
+		it("should calculate LTN price", async () => {
+			ltnSupplyPerPeriod = 300000;
+			auc = await Auction.new(
+				dil.address,
+				minDILSupply,
+				maxPeriods,
+				ltnSupplyPerPeriod,
+				minBid,
+			);
+			await unlock(accounts[1], 120000);
+			await bid(accounts[1], 120000);
+			expect((await auc.getNumOfPeriods()).toNumber()).to.equal(1);
+			let depositFee = web3.utils.toWei("0.00014");
+			let price = await auc.getLTNPriceInPeriod(0, depositFee);
+			expect(price.toString()).to.equal("56000000000000");
+		});
+
+		it("should calculate LTN price (2)", async () => {
+			ltnSupplyPerPeriod = 300000;
+			auc = await Auction.new(
+				dil.address,
+				minDILSupply,
+				maxPeriods,
+				ltnSupplyPerPeriod,
+				minBid,
+			);
+			await unlock(accounts[1], 1200000);
+			await bid(accounts[1], 1200000);
+			expect((await auc.getNumOfPeriods()).toNumber()).to.equal(1);
+			let depositFee = web3.utils.toWei("0.00014");
+			let price = await auc.getLTNPriceInPeriod(0, depositFee);
+			expect(price.toString()).to.equal("560000000000000");
 		});
 	});
 
@@ -344,11 +385,11 @@ contract("Auction", (accounts) => {
 					await unlock(accounts[1], 500);
 					await bid(accounts[1], 500);
 					await advanceTime(86500);
-					await ins.claim({ from: accounts[1] });
-					expect((await ins.balanceOf(accounts[1])).toNumber()).to.equal(1000);
+					await auc.claim({ from: accounts[1] });
+					expect((await auc.balanceOf(accounts[1])).toNumber()).to.equal(1000);
 
 					// should have zero claims
-					expect((await ins.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(
+					expect((await auc.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(
 						0,
 					);
 				});
@@ -363,11 +404,11 @@ contract("Auction", (accounts) => {
 					);
 					await unlock(accounts[1], 500);
 					await bid(accounts[1], 500);
-					await ins.claim({ from: accounts[1] });
-					expect((await ins.balanceOf(accounts[1])).toNumber()).to.equal(0);
+					await auc.claim({ from: accounts[1] });
+					expect((await auc.balanceOf(accounts[1])).toNumber()).to.equal(0);
 
 					// should have one claim
-					expect((await ins.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(
+					expect((await auc.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(
 						1,
 					);
 				});
@@ -386,11 +427,11 @@ contract("Auction", (accounts) => {
 					await bid(accounts[1], 500);
 					await bid(accounts[1], 700);
 					await advanceTime(86500);
-					await ins.claim({ from: accounts[1] });
-					expect((await ins.balanceOf(accounts[1])).toNumber()).to.equal(999);
+					await auc.claim({ from: accounts[1] });
+					expect((await auc.balanceOf(accounts[1])).toNumber()).to.equal(999);
 
 					// should have zero claims
-					expect((await ins.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(
+					expect((await auc.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(
 						0,
 					);
 				});
@@ -412,21 +453,21 @@ contract("Auction", (accounts) => {
 					await unlock(accounts[3], 200);
 					await bid(accounts[3], 200);
 					await advanceTime(86500);
-					await ins.claim({ from: accounts[1] });
-					await ins.claim({ from: accounts[2] });
-					await ins.claim({ from: accounts[3] });
-					expect((await ins.balanceOf(accounts[1])).toNumber()).to.equal(357);
-					expect((await ins.balanceOf(accounts[2])).toNumber()).to.equal(500);
-					expect((await ins.balanceOf(accounts[3])).toNumber()).to.equal(142);
+					await auc.claim({ from: accounts[1] });
+					await auc.claim({ from: accounts[2] });
+					await auc.claim({ from: accounts[3] });
+					expect((await auc.balanceOf(accounts[1])).toNumber()).to.equal(357);
+					expect((await auc.balanceOf(accounts[2])).toNumber()).to.equal(500);
+					expect((await auc.balanceOf(accounts[3])).toNumber()).to.equal(142);
 
 					// should have zero claims for all claimed accounts
-					expect((await ins.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(
+					expect((await auc.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(
 						0,
 					);
-					expect((await ins.getNumOfClaims({ from: accounts[2] })).toNumber()).to.equal(
+					expect((await auc.getNumOfClaims({ from: accounts[2] })).toNumber()).to.equal(
 						0,
 					);
-					expect((await ins.getNumOfClaims({ from: accounts[3] })).toNumber()).to.equal(
+					expect((await auc.getNumOfClaims({ from: accounts[3] })).toNumber()).to.equal(
 						0,
 					);
 				});
@@ -448,23 +489,23 @@ contract("Auction", (accounts) => {
 					await unlock(accounts[3], 200);
 					await bid(accounts[3], 200);
 					await advanceTime(86500);
-					await ins.claim({ from: accounts[1] });
-					expect((await ins.balanceOf(accounts[1])).toNumber()).to.equal(357);
-					expect((await ins.balanceOf(accounts[2])).toNumber()).to.equal(0);
-					expect((await ins.balanceOf(accounts[3])).toNumber()).to.equal(0);
+					await auc.claim({ from: accounts[1] });
+					expect((await auc.balanceOf(accounts[1])).toNumber()).to.equal(357);
+					expect((await auc.balanceOf(accounts[2])).toNumber()).to.equal(0);
+					expect((await auc.balanceOf(accounts[3])).toNumber()).to.equal(0);
 
 					// should have zero claims for account 1
-					expect((await ins.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(
+					expect((await auc.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(
 						0,
 					);
 
 					// should have one claim for account 2
-					expect((await ins.getNumOfClaims({ from: accounts[2] })).toNumber()).to.equal(
+					expect((await auc.getNumOfClaims({ from: accounts[2] })).toNumber()).to.equal(
 						1,
 					);
 
 					// should have one claim for account 3
-					expect((await ins.getNumOfClaims({ from: accounts[3] })).toNumber()).to.equal(
+					expect((await auc.getNumOfClaims({ from: accounts[3] })).toNumber()).to.equal(
 						1,
 					);
 				});
@@ -486,11 +527,11 @@ contract("Auction", (accounts) => {
 					advanceTime(86500);
 					await bid(accounts[1], 500);
 					await advanceTime(86500);
-					expect((await ins.getNumOfPeriods()).toNumber()).to.equal(2);
-					await ins.claim({ from: accounts[1] });
-					expect((await ins.balanceOf(accounts[1])).toNumber()).to.equal(2000);
+					expect((await auc.getNumOfPeriods()).toNumber()).to.equal(2);
+					await auc.claim({ from: accounts[1] });
+					expect((await auc.balanceOf(accounts[1])).toNumber()).to.equal(2000);
 
-					expect((await ins.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(
+					expect((await auc.getNumOfClaims({ from: accounts[1] })).toNumber()).to.equal(
 						0,
 					);
 				});
