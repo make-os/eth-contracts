@@ -13,7 +13,8 @@ contract("Main", (accounts) => {
 		minDILSupply,
 		maxSwappableELL,
 		fundingAddr,
-		dilDepositFee;
+		dilDepositFee,
+		maxInitialLiquidityFund;
 
 	beforeEach(async () => {
 		ltnSupplyPerPeriod = 100;
@@ -46,9 +47,7 @@ contract("Main", (accounts) => {
 			dil.address,
 			auc.address,
 			fundingAddr,
-			{
-				from: accounts[0],
-			},
+			{ from: accounts[0] },
 		);
 		await auc.setOwnerOnce(main.address, { from: accounts[0] });
 	});
@@ -69,11 +68,11 @@ contract("Main", (accounts) => {
 	});
 
 	describe(".withdraw", () => {
-		it("should revert with 'Sender not the funding address' if sender is not the funding address", async () => {
+		it("should revert with 'Not authorized' if sender is not the funding address", async () => {
 			expect(await main.fundingAddress()).to.equal(accounts[5]);
 			await truffleAssert.reverts(
 				main.withdraw(1000, { from: accounts[0] }),
-				"Sender not the funding address",
+				"Not authorized",
 			);
 		});
 

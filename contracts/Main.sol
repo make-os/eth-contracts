@@ -37,9 +37,9 @@ contract Main is DepositDIL {
         ell = EIP20(_ellAddress);
         auc = Auction(_aucAddress);
         dil = Dilithium(_dilAddress);
-        setDilInstance(dil);
         maxSwappableELL = _maxSwappableELL;
         fundingAddress = _fundingAddress;
+        setDilInstance(dil);
         setDepositFee(_dilDepositFee);
     }
 
@@ -56,7 +56,7 @@ contract Main is DepositDIL {
     /// @dev withdraw sends ETH to the funding address.
     /// @param amount is the amount to be withdrawn.
     function withdraw(uint256 amount) external {
-        require(msg.sender == fundingAddress, "Sender not the funding address");
+        require(msg.sender == fundingAddress, "Not authorized");
         (bool success, ) = msg.sender.call{value: amount}("");
         require(success, "Transfer failed");
     }
