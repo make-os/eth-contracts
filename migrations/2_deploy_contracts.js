@@ -3,7 +3,7 @@ const Dilithium = artifacts.require("Dilithium");
 const Auction = artifacts.require("Auction");
 
 module.exports = async function (deployer, network, accounts) {
-	const sender = accounts[0];
+	const sender = "0xee3C22B93C53f9F97D9b94e1D016818aaC5335AC";
 
 	// Deploy dilithium contract.
 	await deployer.deploy(Dilithium, { from: sender });
@@ -34,6 +34,7 @@ module.exports = async function (deployer, network, accounts) {
 	const MaxSwappableELL = "18984565000000000000000000"; // 18984565
 	const FundingAddr = accounts[5];
 	const DilDepositFee = "100000000000000000";
+	const UniswapRouterAddr = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
 	await deployer.deploy(
 		Main,
 		DilDepositFee,
@@ -42,6 +43,7 @@ module.exports = async function (deployer, network, accounts) {
 		Dilithium.address,
 		Auction.address,
 		FundingAddr,
+		UniswapRouterAddr,
 		{ from: sender },
 	);
 

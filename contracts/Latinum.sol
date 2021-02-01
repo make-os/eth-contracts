@@ -2,7 +2,7 @@
 pragma solidity ^0.6.6;
 
 import "./Owner.sol";
-import "./libs/token/ERC20/ERC20.sol";
+import "./libraries/token/ERC20/ERC20.sol";
 
 /// @dev Latinum ERC20 contract
 contract Latinum is ERC20("Latinum", "LTN"), Owner {

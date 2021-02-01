@@ -5,9 +5,17 @@ import "./DepositDIL.sol";
 import "./Owner.sol";
 import "./Dilithium.sol";
 import "./Auction.sol";
-import "./libs/ell/EIP20.sol";
-import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
+import "./libraries/ell/EIP20.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "./libraries/uniswap/UniswapV2Router02.sol";
+
+struct LiquidityTicket {
+    uint256 amount;
+    uint256 lockedAt;
+    bool LTN_ETH;
+    bool DIL_ETH;
+}
 
 /// @title Main
 contract Main is DepositDIL {
@@ -17,8 +25,11 @@ contract Main is DepositDIL {
     uint256 public ellSwapped;
     uint256 public maxSwappableELL;
     address public fundingAddress;
+    mapping(address => LiquidityTicket) public liquidityTickets;
+    UniswapV2Router02 router;
 
     event SwappedELL(address account, uint256 amount);
+    event LiquidityLocked(address owner, uint256 amount, bool LTN_ETH);
 
     /// @dev initializes the contract
     /// @param _dilDepositFee is the DIL deposit fee.
@@ -26,13 +37,15 @@ contract Main is DepositDIL {
     /// @param _ellAddress is the contract address of the ELL token.
     /// @param _dilAddress is the contract address of the DIL token.
     /// @param _aucAddress is the contract address of the auction and LTN token.
+    /// @param _uniswapV2RouterAddress is the contract address of uniswap V2 router.
     constructor(
         uint256 _dilDepositFee,
         uint256 _maxSwappableELL,
         address _ellAddress,
         address _dilAddress,
         address _aucAddress,
-        address _fundingAddress
+        address _fundingAddress,
+        address payable _uniswapV2RouterAddress
     ) public {
         ell = EIP20(_ellAddress);
         auc = Auction(_aucAddress);
@@ -41,6 +54,7 @@ contract Main is DepositDIL {
         fundingAddress = _fundingAddress;
         setDilInstance(dil);
         setDepositFee(_dilDepositFee);
+        router = UniswapV2Router02(_uniswapV2RouterAddress);
     }
 
     receive() external payable {}
@@ -91,6 +105,32 @@ contract Main is DepositDIL {
         emit SwappedELL(from, swapAmount);
     }
 
-    /// @dev createPools creates LTN/ETH and DIL/ETH uniswap pools.
-    function createPools() external {}
+    /// @dev lockLiquidity locks LTN/ETH and DIL/ETH Uniswap liquidity.
+    /// @param amount is the number of liquidity to lock. Up to this amount
+    /// must have been approved by the sender.
+    /// @param ltnEth indicates that the LTN/ETH liquidity should be locked
+    /// instead of the DIL/ETH pool liquidity
+    function lockLiquidity(uint256 amount, bool ltnEth) external {
+        IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
+        IUniswapV2Pair pair;
+
+        address token = (ltnEth) ? address(auc) : address(dil);
+        pair = IUniswapV2Pair(factory.getPair(token, router.WETH()));
+
+        require(
+            pair.allowance(msg.sender, address(this)) >= amount,
+            "Amount not approved"
+        );
+
+        // Transfer liquidity to the contract
+        pair.transferFrom(msg.sender, address(this), amount);
+        liquidityTickets[msg.sender] = LiquidityTicket(
+            amount,
+            block.timestamp,
+            ltnEth,
+            !ltnEth
+        );
+
+        emit LiquidityLocked(msg.sender, amount, ltnEth);
+    }
 }

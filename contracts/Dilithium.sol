@@ -2,7 +2,7 @@
 pragma solidity ^0.6.6;
 
 import "./Owner.sol";
-import "./libs/token/ERC20/ERC20.sol";
+import "./libraries/token/ERC20/ERC20.sol";
 
 /// @dev Dilithium ERC20 contract
 contract Dilithium is ERC20("Dilithium", "DIL"), Owner {

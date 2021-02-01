@@ -2,7 +2,9 @@ const Main = artifacts.require("Main");
 const Latinum = artifacts.require("Latinum");
 const Auction = artifacts.require("Auction");
 const Dilithium = artifacts.require("Dilithium");
-const ELL = artifacts.require("../contracts/libs/ell/EIP20.sol");
+const ELL = artifacts.require("../contracts/libraries/ell/EIP20.sol");
+const UniswapV2Library = artifacts.require("./libraries/uniswap/UniswapV2Library.sol");
+const IUniswapV2Pair = artifacts.require("./libraries/uniswap/IUniswapV2Pair.sol");
 const truffleAssert = require("truffle-assertions");
 
 contract("Main", (accounts) => {
@@ -40,6 +42,7 @@ contract("Main", (accounts) => {
 		maxSwappableELL = 10000;
 		fundingAddr = accounts[5];
 		dilDepositFee = "100000000000000000";
+		let uniswapRouter = "0x0000000000000000000000000000000000000000";
 		main = await Main.new(
 			dilDepositFee,
 			maxSwappableELL,
@@ -47,6 +50,7 @@ contract("Main", (accounts) => {
 			dil.address,
 			auc.address,
 			fundingAddr,
+			uniswapRouter,
 			{ from: accounts[0] },
 		);
 		await auc.setOwnerOnce(main.address, { from: accounts[0] });

@@ -2,7 +2,7 @@
 pragma solidity ^0.6.6;
 
 import "../../GSN/Context.sol";
-import "./IERC20.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IERC20.sol";
 import "../../math/SafeMath.sol";
 
 /**
@@ -60,7 +60,7 @@ contract ERC20 is Context, IERC20 {
     /**
      * @dev Returns the name of the token.
      */
-    function name() public view returns (string memory) {
+    function name() public override view returns (string memory) {
         return _name;
     }
 
@@ -68,7 +68,7 @@ contract ERC20 is Context, IERC20 {
      * @dev Returns the symbol of the token, usually a shorter version of the
      * name.
      */
-    function symbol() public view returns (string memory) {
+    function symbol() public override view returns (string memory) {
         return _symbol;
     }
 
@@ -85,7 +85,7 @@ contract ERC20 is Context, IERC20 {
      * no way affects any of the arithmetic of the contract, including
      * {IERC20-balanceOf} and {IERC20-transfer}.
      */
-    function decimals() public view returns (uint8) {
+    function decimals() public override view returns (uint8) {
         return _decimals;
     }
 

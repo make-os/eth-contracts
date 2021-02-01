@@ -3,8 +3,8 @@ pragma solidity ^0.6.6;
 
 import "./Latinum.sol";
 import "./Dilithium.sol";
-import "./libs/math/SafeMath.sol";
-import "./libs/math/Math.sol";
+import "./libraries/math/SafeMath.sol";
+import "./libraries/math/Math.sol";
 
 /// Claim represents a bidder's claim to a bidding
 /// period Latinum supply.

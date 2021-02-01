@@ -2,7 +2,7 @@ const Main = artifacts.require("Main");
 const Latinum = artifacts.require("Latinum");
 const Auction = artifacts.require("Auction");
 const Dilithium = artifacts.require("Dilithium");
-const ELL = artifacts.require("../contracts/libs/ell/EIP20.sol");
+const ELL = artifacts.require("../contracts/libraries/ell/EIP20.sol");
 const truffleAssert = require("truffle-assertions");
 
 contract("DILDeposit", (accounts) => {
@@ -38,6 +38,7 @@ contract("DILDeposit", (accounts) => {
 		maxSwappableELL = 10000;
 		fundingAddr = accounts[5];
 		dilDepositFee = web3.utils.toWei("0.00001", "ether");
+		let uniswapRouter = "0x0000000000000000000000000000000000000000";
 		main = await Main.new(
 			dilDepositFee,
 			maxSwappableELL,
@@ -45,6 +46,7 @@ contract("DILDeposit", (accounts) => {
 			dil.address,
 			auc.address,
 			fundingAddr,
+			uniswapRouter,
 			{ from: accounts[0] },
 		);
 		await auc.setOwnerOnce(main.address, { from: accounts[0] });
