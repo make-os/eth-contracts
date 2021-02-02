@@ -9,6 +9,7 @@ import "./libraries/ell/EIP20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./libraries/uniswap/UniswapV2Router02.sol";
+import "./libraries/math/SafeMath.sol";
 
 struct LiquidityTicket {
     uint256 amount;
@@ -19,13 +20,31 @@ struct LiquidityTicket {
 
 /// @title Main
 contract Main is DepositDIL {
+    // ell is the Ellcrys token contract.
     EIP20 ell;
+
+    // Auction is the Latinum auction contract and token.
     Auction public auc;
+
+    // swapped keeps count of the number of LTN minted for swapped ELL tokens.
     uint256 public swapped;
+
+    // ellSwapped is the number of ELL swapped.
     uint256 public ellSwapped;
+
+    // maxSwappableELL is the maximum number of ELL that can be swapped.
     uint256 public maxSwappableELL;
+
+    // fundingAddress is the address where contract fund can be transfered to.
     address public fundingAddress;
-    mapping(address => LiquidityTicket) public liquidityTickets;
+
+    // lockedLTN_WETH is the locked LTN/WETH Uniswap pool tokens.
+    mapping(address => LiquidityTicket) public lockedLTN_WETH;
+
+    // lockedDIL_WETH is the locked DIL/WETH Uniswap pool tokens.
+    mapping(address => LiquidityTicket) public lockedDIL_WETH;
+
+    // router is the Uniswap v2 router
     UniswapV2Router02 router;
 
     event SwappedELL(address account, uint256 amount);
@@ -112,25 +131,99 @@ contract Main is DepositDIL {
     /// instead of the DIL/ETH pool liquidity
     function lockLiquidity(uint256 amount, bool ltnEth) external {
         IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
-        IUniswapV2Pair pair;
 
         address token = (ltnEth) ? address(auc) : address(dil);
-        pair = IUniswapV2Pair(factory.getPair(token, router.WETH()));
+        IUniswapV2Pair pair =
+            IUniswapV2Pair(factory.getPair(token, router.WETH()));
 
         require(
             pair.allowance(msg.sender, address(this)) >= amount,
             "Amount not approved"
         );
 
-        // Transfer liquidity to the contract
         pair.transferFrom(msg.sender, address(this), amount);
-        liquidityTickets[msg.sender] = LiquidityTicket(
-            amount,
-            block.timestamp,
-            ltnEth,
-            !ltnEth
-        );
+
+        if (ltnEth) {
+            // prettier-ignore
+            lockedLTN_WETH[msg.sender] = LiquidityTicket(amount,block.timestamp,true, false);
+        } else {
+            // prettier-ignore
+            lockedDIL_WETH[msg.sender] = LiquidityTicket(amount,block.timestamp,false,true);
+        }
 
         emit LiquidityLocked(msg.sender, amount, ltnEth);
+    }
+
+    /// @dev totalLiquidity returns the total liquidity in a LTN/WETH or
+    /// DIL/WETH pool.
+    /// @param ltnEth targets the LTN/ETH pool liquidity, otherwise, the DIL/ETH.
+    function totalLiquidity(bool ltnEth) public view returns (uint256) {
+        IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
+        address token = (ltnEth) ? address(auc) : address(dil);
+        IUniswapV2Pair pair =
+            IUniswapV2Pair(factory.getPair(token, router.WETH()));
+        return pair.totalSupply();
+    }
+
+    /// @dev calcLiquidityReward calculates an LP's reward given the
+    /// liquidity, liquidity age and total liquidity.
+    /// @param _liquidityAge is the age of the liquidity.
+    /// @param _liquidity is the LP's amount liquidity.
+    /// @param _totalLiquidity is the total liquidity from all LPs.
+    function calcLiquidityReward(
+        uint256 _liquidityAge,
+        uint256 _liquidity,
+        uint256 _totalLiquidity
+    ) public pure returns (uint256) {
+        return
+            SM.sqrt(SM.div(SM.mul(_liquidity, _liquidityAge), _totalLiquidity));
+    }
+
+    /// @dev calcSenderLiquidityReward claims the current reward earned by a
+    /// liquidity ticket.
+    /// @param _ltnEth targets the LTN/ETH pool liquidity, otherwise, the DIL/ETH.
+    /// @param _now is the current unix time (preferrable the last block timestamp).
+    function calcSenderLiquidityReward(bool _ltnEth, uint256 _now)
+        public
+        view
+        returns (uint256)
+    {
+        LiquidityTicket memory ticket =
+            (_ltnEth) ? lockedLTN_WETH[msg.sender] : lockedDIL_WETH[msg.sender];
+
+        require(ticket.lockedAt > 0, "Liquidity not found");
+
+        return
+            calcLiquidityReward(
+                _now - ticket.lockedAt,
+                ticket.amount,
+                totalLiquidity(_ltnEth)
+            );
+    }
+
+    /// @dev claimLiquidityReward claims the current reward earned by a
+    /// liquidity ticket.
+    /// @param ltnEth targets the LTN/ETH pool liquidity, otherwise, the DIL/ETH.
+    function claimLiquidityReward(bool ltnEth) public {
+        LiquidityTicket memory ticket =
+            (ltnEth) ? lockedLTN_WETH[msg.sender] : lockedDIL_WETH[msg.sender];
+
+        require(ticket.lockedAt > 0, "Liquidity not found");
+
+        uint256 reward =
+            calcLiquidityReward(
+                block.timestamp - ticket.lockedAt,
+                ticket.amount,
+                totalLiquidity(ltnEth)
+            );
+
+        ticket.lockedAt = block.timestamp;
+        if (ltnEth) {
+            lockedLTN_WETH[msg.sender] = ticket;
+        } else {
+            lockedDIL_WETH[msg.sender] = ticket;
+        }
+
+        auc.mint(msg.sender, 1 wei * reward);
     }
 }

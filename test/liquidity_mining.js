@@ -13,7 +13,7 @@ const WETHBytecode = require("@uniswap/v2-periphery/build/WETH9.json");
 const { expect } = require("chai");
 
 describe("LiquidityMining", function () {
-	this.timeout(5000);
+	this.timeout(10000);
 
 	let provider = new Waffle.MockProvider({
 		ganacheOptions: {
@@ -141,27 +141,14 @@ describe("LiquidityMining", function () {
 		});
 	}
 
-	function addLiquidityEth(
-		token,
-		desiredTokenAmt,
-		minTokenAmt,
-		desiredETHAmt,
-		amountETHMin,
-		liquidityTo,
-	) {
+	// prettier-ignore
+	function addLiquidityEth(token,desiredTokenAmt,minTokenAmt,desiredETHAmt,amountETHMin,liquidityTo) {
 		return new Promise(async (res, rej) => {
 			try {
+				// prettier-ignore
 				const r = await router
 					.connect(provider.getSigner(liquidityTo))
-					.addLiquidityETH(
-						token,
-						desiredTokenAmt,
-						minTokenAmt,
-						amountETHMin,
-						liquidityTo,
-						Ethers.constants.MaxUint256,
-						{ value: desiredETHAmt },
-					);
+					.addLiquidityETH(token,desiredTokenAmt,minTokenAmt,amountETHMin,liquidityTo,Ethers.constants.MaxUint256,{ value: desiredETHAmt });
 				res();
 			} catch (error) {
 				rej(error);
@@ -236,7 +223,7 @@ describe("LiquidityMining", function () {
 				let contractLiquidity = await pair.balanceOf(main.address);
 				expect(contractLiquidity.eq(lpLiquidity)).to.be.true;
 
-				let lt = await main.liquidityTickets(lp.address);
+				let lt = await main.lockedLTN_WETH(lp.address);
 				expect(lt.amount.eq(lpLiquidity)).to.be.true;
 				expect(lt.lockedAt.toNumber() > 0).to.be.true;
 				expect(lt.LTN_ETH).to.equal(true);
@@ -292,7 +279,7 @@ describe("LiquidityMining", function () {
 				let contractLiquidity = await pair.balanceOf(main.address);
 				expect(contractLiquidity.eq(lpLiquidity)).to.be.true;
 
-				let lt = await main.liquidityTickets(lp.address);
+				let lt = await main.lockedDIL_WETH(lp.address);
 				expect(lt.amount.eq(lpLiquidity)).to.be.true;
 				expect(lt.lockedAt.toNumber() > 0).to.be.true;
 				expect(lt.LTN_ETH).to.equal(false);
@@ -300,22 +287,208 @@ describe("LiquidityMining", function () {
 			});
 		});
 	});
+
+	describe(".calcSenderLiquidityReward", () => {
+		it("should revert when sender has no liquidity ticket", async () => {
+			await truffleAssert.reverts(
+				main.calcSenderLiquidityReward(true, 0),
+				"Liquidity not found",
+			);
+		});
+
+		it("should return expected reward when sender has a liquidity ticket", async () => {
+			let ltnAmt = web3.utils.toWei("500");
+			await mintLTN(lp.address, ltnAmt);
+			await approveLTN(lp.address, router.address, ltnAmt);
+			let ethAmt = web3.utils.toWei("30");
+
+			// Add liquidity
+			// prettier-ignore
+			r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
+			let pair = await getPairContract(auc.address, weth.address, accounts[0]);
+			let lpLiquidity = await pair.balanceOf(lp.address);
+
+			// Approve and lock liquidity
+			const signer = provider.getSigner(lp.address);
+			await pair.connect(signer).approve(main.address, lpLiquidity);
+			await main.connect(signer).lockLiquidity(lpLiquidity, true);
+
+			// LP liquidity should be 0
+			curLiquidity = await pair.balanceOf(lp.address);
+			expect(curLiquidity.toString()).to.equal("0");
+
+			// Let the liquidity age
+			const future = parseInt((Date.now() + 2000) / 1000);
+			let reward = await main.connect(signer).calcSenderLiquidityReward(true, future);
+			expect(reward.toNumber()).to.equal(1);
+		});
+	});
+
+	describe(".claimLiquidityReward (LTN/WETH)", () => {
+		it("should revert when sender has no liquidity ticket", async () => {
+			await truffleAssert.reverts(main.claimLiquidityReward(true), "Liquidity not found");
+		});
+
+		it("should claim reward when sender has a liquidity ticket", async () => {
+			let ltnAmt = web3.utils.toWei("500");
+			await mintLTN(lp.address, ltnAmt);
+			await approveLTN(lp.address, router.address, ltnAmt);
+			let ethAmt = web3.utils.toWei("30");
+
+			// Add liquidity
+			// prettier-ignore
+			r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
+			let pair = await getPairContract(auc.address, weth.address, accounts[0]);
+			let lpLiquidity = await pair.balanceOf(lp.address);
+
+			// Approve and lock liquidity
+			await pair
+				.connect(provider.getSigner(lp.address))
+				.approve(main.address, lpLiquidity);
+			await main.connect(provider.getSigner(lp.address)).lockLiquidity(lpLiquidity, true);
+
+			// LP liquidity should be 0
+			curLiquidity = await pair.balanceOf(lp.address);
+			expect(curLiquidity.toString()).to.equal("0");
+
+			// LP liquidity should be locked, lock time should be recorded
+			let lt = await main.lockedLTN_WETH(lp.address);
+			expect(lt.amount.eq(lpLiquidity)).to.be.true;
+			const now = parseInt(Date.now() / 1000);
+			expect(lt.lockedAt.toNumber()).to.be.within(now - 1, now + 1);
+
+			// Let the liquidity age
+			await new Promise((resolve) => setTimeout(resolve, 2000));
+			const now2 = parseInt(Date.now() / 1000);
+			lt = await main.lockedLTN_WETH(lp.address);
+			expect(lt.lockedAt.toNumber() < now2).to.be.true;
+
+			// Make Main the owner of the auction contract.
+			await auc.setOwnerOnce(main.address);
+			await main.connect(provider.getSigner(lp.address)).claimLiquidityReward(true);
+
+			// LP should receive LTN reward
+			let ltnBal = await auc.balanceOf(lp.address);
+			expect(ltnBal.toNumber()).to.equal(1);
+
+			// Locked liquidity should be untouched but the lock time
+			// should be reset to a recent time greater than the previous.
+			let lt2 = await main.lockedLTN_WETH(lp.address);
+			expect(lt2.amount.eq(lpLiquidity)).to.be.true;
+			expect(lt2.lockedAt.toNumber() > lt.lockedAt.toNumber()).to.be.true;
+		});
+	});
+
+	describe(".claimLiquidityReward (DIL/WETH)", () => {
+		it("should revert when sender has no liquidity ticket", async () => {
+			await truffleAssert.reverts(main.claimLiquidityReward(true), "Liquidity not found");
+		});
+
+		it("should calculate reward when sender has a liquidity ticket", async () => {
+			let dilAmt = web3.utils.toWei("500");
+			await mintDIL(lp.address, dilAmt);
+			await approveDIL(lp.address, router.address, dilAmt);
+			let ethAmt = web3.utils.toWei("30");
+
+			// Add liquidity
+			// prettier-ignore
+			r = await addLiquidityEth(dil.address,dilAmt,dilAmt,ethAmt,ethAmt,lp.address);
+			let pair = await getPairContract(dil.address, weth.address, accounts[0]);
+			let lpLiquidity = await pair.balanceOf(lp.address);
+
+			// Approve and lock liquidity
+			await pair
+				.connect(provider.getSigner(lp.address))
+				.approve(main.address, lpLiquidity);
+			await main
+				.connect(provider.getSigner(lp.address))
+				.lockLiquidity(lpLiquidity, false);
+
+			// LP liquidity should be 0
+			curLiquidity = await pair.balanceOf(lp.address);
+			expect(curLiquidity.toString()).to.equal("0");
+
+			// LP liquidity should be locked, lock time should be recorded
+			let lt = await main.lockedDIL_WETH(lp.address);
+			expect(lt.amount.eq(lpLiquidity)).to.be.true;
+			const now = parseInt(Date.now() / 1000);
+			expect(lt.lockedAt.toNumber()).to.be.within(now - 1, now + 1);
+
+			// Let the liquidity age
+			await new Promise((resolve) => setTimeout(resolve, 2000));
+			const now2 = parseInt(Date.now() / 1000);
+			lt = await main.lockedDIL_WETH(lp.address);
+			expect(lt.lockedAt.toNumber() < now2).to.be.true;
+
+			// Make Main the owner of the auction contract.
+			await auc.setOwnerOnce(main.address);
+			await main.connect(provider.getSigner(lp.address)).claimLiquidityReward(false);
+
+			// LP should receive LTN reward
+			let ltnBal = await auc.balanceOf(lp.address);
+			expect(ltnBal.toNumber()).to.equal(1);
+
+			// Locked liquidity should be untouched but the lock time
+			// should be reset to a recent time greater than the previous.
+			let lt2 = await main.lockedDIL_WETH(lp.address);
+			expect(lt2.amount.eq(lpLiquidity)).to.be.true;
+			expect(lt2.lockedAt.toNumber() > lt.lockedAt.toNumber()).to.be.true;
+		});
+	});
+
+	describe(".calcLiquidityReward", () => {
+		it("should return expected results", async () => {
+			// prettier-ignore
+			let expected = new web3.utils.BN("122474487139158903909").mul(new web3.utils.BN("1")).
+				div(new web3.utils.BN("122474487139158903909")).sqr();
+
+			// prettier-ignore
+			let r = await main.calcLiquidityReward(1,"122474487139158903909","122474487139158903909");
+			expect(r.toNumber()).to.equal(expected.toNumber());
+
+			// prettier-ignore
+			expected = parseInt(
+				Math.sqrt(new web3.utils.BN("122474487139158903909").mul(new web3.utils.BN(86400)).
+					div(new web3.utils.BN("122474487139158903909")).toNumber(),
+				),
+			);
+
+			// prettier-ignore
+			r = await main.calcLiquidityReward(86400, "122474487139158903909", "122474487139158903909");
+			expect(r.toNumber()).to.equal(expected);
+
+			// prettier-ignore
+			expected = parseInt(
+				Math.sqrt(new web3.utils.BN("122474487139158903909").mul(new web3.utils.BN(86400 * 365)).
+					div(new web3.utils.BN("122474487139158903909")).toNumber(),
+				),
+			);
+
+			// prettier-ignore
+			r = await main.calcLiquidityReward(86400*365, "122474487139158903909", "122474487139158903909");
+			expect(r.toNumber()).to.equal(expected);
+		});
+	});
 });
 
 // getLog(provider,weth.address,
 // 	"event Deposit(address indexed dst, uint256 wad);", (log) => { console.log(log) });
-async function getLog(provider, contractAddr, eventAbi, cb) {
-	let iface = new utils.Interface([eventAbi]);
-	await provider
-		.getLogs({
-			fromBlock: 0,
-			toBlock: "latest",
-			address: contractAddr,
-		})
-		.then((logs) => {
-			logs.forEach((log) => {
-				let d = iface.parseLog(log);
-				cb(d);
-			});
-		});
+function getLog(provider, contractAddr, eventAbi, cb) {
+	return new Promise(async (res, rej) => {
+		let iface = new Ethers.utils.Interface([eventAbi]);
+		provider
+			.getLogs({
+				fromBlock: 0,
+				toBlock: "latest",
+				address: contractAddr,
+			})
+			.then((logs) => {
+				logs.forEach((log) => {
+					let d = iface.parseLog(log);
+					// cb(d);
+				});
+				res();
+			})
+			.catch(rej);
+	});
 }
