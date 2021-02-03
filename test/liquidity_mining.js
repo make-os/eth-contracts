@@ -34,10 +34,12 @@ describe("LiquidityMining", function () {
 		maxInitialLiquidityFund;
 	let r;
 	let lp;
+	let lps;
 
 	beforeEach(async function () {
 		accounts = provider.getWallets();
 		lp = accounts[1];
+		lps = provider.getSigner(lp.address);
 
 		factory = await Waffle.deployContract(accounts[0], UniswapV2FactoryBytecode, [
 			accounts[0].address,
@@ -166,7 +168,7 @@ describe("LiquidityMining", function () {
 			r = await addLiquidityEth(auc.address, ltnAmt, ltnAmt, ethAmt, ethAmt, lp.address);
 
 			await truffleAssert.reverts(
-				main.connect(provider.getSigner(lp.address)).lockLiquidity(100000, true),
+				main.connect(lps).lockLiquidity(100000, true),
 				"Amount not approved",
 			);
 		});
@@ -181,12 +183,10 @@ describe("LiquidityMining", function () {
 
 			let pair = await getPairContract(auc.address, weth.address, accounts[0]);
 			let lpLiquidity = await pair.balanceOf(lp.address);
-			await pair
-				.connect(provider.getSigner(lp.address))
-				.approve(main.address, lpLiquidity.sub("1"));
+			await pair.connect(lps).approve(main.address, lpLiquidity.sub("1"));
 
 			await truffleAssert.reverts(
-				main.connect(provider.getSigner(lp.address)).lockLiquidity(lpLiquidity, true),
+				main.connect(lps).lockLiquidity(lpLiquidity, true),
 				"Amount not approved",
 			);
 		});
@@ -198,24 +198,14 @@ describe("LiquidityMining", function () {
 				await approveLTN(lp.address, router.address, ltnAmt);
 
 				let ethAmt = web3.utils.toWei("0.1");
-				r = await addLiquidityEth(
-					auc.address,
-					ltnAmt,
-					ltnAmt,
-					ethAmt,
-					ethAmt,
-					lp.address,
-				);
+				// prettier-ignore
+				r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
 
 				let pair = await getPairContract(auc.address, weth.address, accounts[0]);
 				let lpLiquidity = await pair.balanceOf(lp.address);
-				await pair
-					.connect(provider.getSigner(lp.address))
-					.approve(main.address, lpLiquidity);
+				await pair.connect(lps).approve(main.address, lpLiquidity);
 
-				await main
-					.connect(provider.getSigner(lp.address))
-					.lockLiquidity(lpLiquidity, true);
+				await main.connect(lps).lockLiquidity(lpLiquidity, true);
 
 				let curLiquidity = await pair.balanceOf(lp.address);
 				expect(curLiquidity.toString()).to.equal("0");
@@ -230,6 +220,41 @@ describe("LiquidityMining", function () {
 				expect(lt.DIL_ETH).to.equal(false);
 			});
 		});
+
+		describe("when sender has previously locked liquidity with same address", () => {
+			it("should transfer approved liquidity and create a liquidity ticket", async () => {
+				let ltnAmt = web3.utils.toWei("50");
+				await mintLTN(lp.address, ltnAmt);
+				await approveLTN(lp.address, router.address, ltnAmt);
+				let ethAmt = web3.utils.toWei("0.1");
+				// prettier-ignore
+				r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
+				let pair = await getPairContract(auc.address, weth.address, accounts[0]);
+				let lpLiquidity = await pair.balanceOf(lp.address);
+				await pair.connect(lps).approve(main.address, lpLiquidity);
+				await main.connect(lps).lockLiquidity(lpLiquidity, true);
+				let lt = await main.lockedLTN_WETH(lp.address);
+				expect(lt.amount.eq(lpLiquidity)).to.be.true;
+
+				/** LP adds and locks liquidity again from same address */
+
+				ltnAmt = web3.utils.toWei("50");
+				await mintLTN(lp.address, ltnAmt);
+				await approveLTN(lp.address, router.address, ltnAmt);
+				ethAmt = web3.utils.toWei("0.1");
+				// prettier-ignore
+				r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
+				pair = await getPairContract(auc.address, weth.address, accounts[0]);
+				let lpLiquidity2 = await pair.balanceOf(lp.address);
+				await pair.connect(lps).approve(main.address, lpLiquidity2);
+				await main.connect(lps).lockLiquidity(lpLiquidity2, true);
+
+				// LP ticket should be the sum of all previously locked liquidity
+				let lt2 = await main.lockedLTN_WETH(lp.address);
+				let expected = lpLiquidity.add(lpLiquidity2);
+				expect(lt2.amount.eq(expected)).to.be.true;
+			});
+		});
 	});
 
 	describe(".lockLiquidity (DIL/WETH)", () => {
@@ -242,7 +267,7 @@ describe("LiquidityMining", function () {
 			r = await addLiquidityEth(dil.address, dilAmt, dilAmt, ethAmt, ethAmt, lp.address);
 
 			await truffleAssert.reverts(
-				main.connect(provider.getSigner(lp.address)).lockLiquidity(100000, false),
+				main.connect(lps).lockLiquidity(100000, false),
 				"Amount not approved",
 			);
 		});
@@ -265,13 +290,9 @@ describe("LiquidityMining", function () {
 
 				let pair = await getPairContract(dil.address, weth.address, accounts[0]);
 				let lpLiquidity = await pair.balanceOf(lp.address);
-				await pair
-					.connect(provider.getSigner(lp.address))
-					.approve(main.address, lpLiquidity);
+				await pair.connect(lps).approve(main.address, lpLiquidity);
 
-				await main
-					.connect(provider.getSigner(lp.address))
-					.lockLiquidity(lpLiquidity, false);
+				await main.connect(lps).lockLiquidity(lpLiquidity, false);
 
 				let curLiquidity = await pair.balanceOf(lp.address);
 				expect(curLiquidity.toString()).to.equal("0");
@@ -285,6 +306,98 @@ describe("LiquidityMining", function () {
 				expect(lt.LTN_ETH).to.equal(false);
 				expect(lt.DIL_ETH).to.equal(true);
 			});
+		});
+	});
+
+	describe(".unlockLiquidity (LTN/WETH)", () => {
+		it("should revert when sender has no liquidity ticket", async () => {
+			await truffleAssert.reverts(main.unlockLiquidity(true), "Liquidity not found");
+		});
+
+		it("should return locked liquidity and remove liquidity ticket", async () => {
+			let ltnAmt = web3.utils.toWei("50");
+			await mintLTN(lp.address, ltnAmt);
+			await approveLTN(lp.address, router.address, ltnAmt);
+			let ethAmt = web3.utils.toWei("0.1");
+			// prettier-ignore
+			r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
+			let pair = await getPairContract(auc.address, weth.address, accounts[0]);
+			let lpLiquidity = await pair.balanceOf(lp.address);
+			await pair.connect(lps).approve(main.address, lpLiquidity);
+			await main.connect(lps).lockLiquidity(lpLiquidity, true);
+
+			// Check that the contract has the liquidity
+			let contractLiquidity = await pair.balanceOf(main.address);
+			expect(contractLiquidity.toString()).to.equal(lpLiquidity.toString());
+
+			// Check that the LP no longer has the liquidity
+			let curLPLiquidity = await pair.balanceOf(lp.address);
+			expect(curLPLiquidity.toString()).to.equal("0");
+
+			let lt = await main.lockedLTN_WETH(lp.address);
+			expect(lt.amount.eq(lpLiquidity)).to.be.true;
+
+			// Unlock the liquidity
+			await main.connect(lps).unlockLiquidity(true);
+
+			// Should revert because the liquidity ticket no longer exists
+			lt = await main.lockedLTN_WETH(lp.address);
+			expect(lt.amount.toString()).to.equal("0");
+			expect(lt.lockedAt.toString()).to.equal("0");
+
+			// Check that the liquidity is back in the LP's account.
+			curLPLiquidity = await pair.balanceOf(lp.address);
+			expect(curLPLiquidity.toString()).to.equal(lpLiquidity.toString());
+
+			// Check that the contract no longer has the liquidity
+			contractLiquidity = await pair.balanceOf(main.address);
+			expect(contractLiquidity.toString()).to.equal("0");
+		});
+	});
+
+	describe(".unlockLiquidity (DIL/WETH)", () => {
+		it("should revert when sender has no liquidity ticket", async () => {
+			await truffleAssert.reverts(main.unlockLiquidity(false), "Liquidity not found");
+		});
+
+		it("should return locked liquidity and remove liquidity ticket", async () => {
+			let dilAmt = web3.utils.toWei("50");
+			await mintDIL(lp.address, dilAmt);
+			await approveDIL(lp.address, router.address, dilAmt);
+			let ethAmt = web3.utils.toWei("0.1");
+			// prettier-ignore
+			r = await addLiquidityEth(dil.address,dilAmt,dilAmt,ethAmt,ethAmt,lp.address);
+			let pair = await getPairContract(dil.address, weth.address, accounts[0]);
+			let lpLiquidity = await pair.balanceOf(lp.address);
+			await pair.connect(lps).approve(main.address, lpLiquidity);
+			await main.connect(lps).lockLiquidity(lpLiquidity, false);
+
+			// Check that the contract has the liquidity
+			let contractLiquidity = await pair.balanceOf(main.address);
+			expect(contractLiquidity.toString()).to.equal(lpLiquidity.toString());
+
+			// Check that the LP no longer has the liquidity
+			let curLPLiquidity = await pair.balanceOf(lp.address);
+			expect(curLPLiquidity.toString()).to.equal("0");
+
+			let lt = await main.lockedDIL_WETH(lp.address);
+			expect(lt.amount.eq(lpLiquidity)).to.be.true;
+
+			// Unlock the liquidity
+			await main.connect(lps).unlockLiquidity(false);
+
+			// Should revert because the liquidity ticket no longer exists
+			lt = await main.lockedDIL_WETH(lp.address);
+			expect(lt.amount.toString()).to.equal("0");
+			expect(lt.lockedAt.toString()).to.equal("0");
+
+			// Check that the liquidity is back in the LP's account.
+			curLPLiquidity = await pair.balanceOf(lp.address);
+			expect(curLPLiquidity.toString()).to.equal(lpLiquidity.toString());
+
+			// Check that the contract no longer has the liquidity
+			contractLiquidity = await pair.balanceOf(main.address);
+			expect(contractLiquidity.toString()).to.equal("0");
 		});
 	});
 
@@ -309,7 +422,7 @@ describe("LiquidityMining", function () {
 			let lpLiquidity = await pair.balanceOf(lp.address);
 
 			// Approve and lock liquidity
-			const signer = provider.getSigner(lp.address);
+			const signer = lps;
 			await pair.connect(signer).approve(main.address, lpLiquidity);
 			await main.connect(signer).lockLiquidity(lpLiquidity, true);
 
@@ -342,10 +455,8 @@ describe("LiquidityMining", function () {
 			let lpLiquidity = await pair.balanceOf(lp.address);
 
 			// Approve and lock liquidity
-			await pair
-				.connect(provider.getSigner(lp.address))
-				.approve(main.address, lpLiquidity);
-			await main.connect(provider.getSigner(lp.address)).lockLiquidity(lpLiquidity, true);
+			await pair.connect(lps).approve(main.address, lpLiquidity);
+			await main.connect(lps).lockLiquidity(lpLiquidity, true);
 
 			// LP liquidity should be 0
 			curLiquidity = await pair.balanceOf(lp.address);
@@ -365,7 +476,7 @@ describe("LiquidityMining", function () {
 
 			// Make Main the owner of the auction contract.
 			await auc.setOwnerOnce(main.address);
-			await main.connect(provider.getSigner(lp.address)).claimLiquidityReward(true);
+			await main.connect(lps).claimLiquidityReward(true);
 
 			// LP should receive LTN reward
 			let ltnBal = await auc.balanceOf(lp.address);
@@ -397,12 +508,8 @@ describe("LiquidityMining", function () {
 			let lpLiquidity = await pair.balanceOf(lp.address);
 
 			// Approve and lock liquidity
-			await pair
-				.connect(provider.getSigner(lp.address))
-				.approve(main.address, lpLiquidity);
-			await main
-				.connect(provider.getSigner(lp.address))
-				.lockLiquidity(lpLiquidity, false);
+			await pair.connect(lps).approve(main.address, lpLiquidity);
+			await main.connect(lps).lockLiquidity(lpLiquidity, false);
 
 			// LP liquidity should be 0
 			curLiquidity = await pair.balanceOf(lp.address);
@@ -422,7 +529,7 @@ describe("LiquidityMining", function () {
 
 			// Make Main the owner of the auction contract.
 			await auc.setOwnerOnce(main.address);
-			await main.connect(provider.getSigner(lp.address)).claimLiquidityReward(false);
+			await main.connect(lps).claimLiquidityReward(false);
 
 			// LP should receive LTN reward
 			let ltnBal = await auc.balanceOf(lp.address);
