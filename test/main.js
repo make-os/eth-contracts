@@ -71,6 +71,21 @@ contract("Main", (accounts) => {
 		});
 	});
 
+	describe(".setK", async function () {
+		it("should revert if sender is not owner", async () => {
+			await truffleAssert.reverts(
+				main.setK(accounts[6], { from: accounts[2] }),
+				"Sender is not owner",
+			);
+		});
+
+		it("should set new address if sender is owner", async () => {
+			expect((await main.rewardK()).toString()).to.equal("0");
+			await main.setK("123", { from: accounts[0] });
+			expect((await main.rewardK()).toString()).to.equal("123");
+		});
+	});
+
 	describe(".withdraw", () => {
 		it("should revert with 'Not authorized' if sender is not the funding address", async () => {
 			expect(await main.fundingAddress()).to.equal(accounts[5]);

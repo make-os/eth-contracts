@@ -442,51 +442,67 @@ describe("LiquidityMining", function () {
 			await truffleAssert.reverts(main.claimLiquidityReward(true), "Liquidity not found");
 		});
 
-		it("should claim reward when sender has a liquidity ticket", async () => {
-			let ltnAmt = web3.utils.toWei("500");
-			await mintLTN(lp.address, ltnAmt);
-			await approveLTN(lp.address, router.address, ltnAmt);
-			let ethAmt = web3.utils.toWei("30");
+		describe("when sender has liquidity", () => {
+			let lpLiquidity, lt;
 
-			// Add liquidity
-			// prettier-ignore
-			r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
-			let pair = await getPairContract(auc.address, weth.address, accounts[0]);
-			let lpLiquidity = await pair.balanceOf(lp.address);
+			beforeEach(async () => {
+				let ltnAmt = web3.utils.toWei("500");
+				await mintLTN(lp.address, ltnAmt);
+				await approveLTN(lp.address, router.address, ltnAmt);
+				let ethAmt = web3.utils.toWei("30");
 
-			// Approve and lock liquidity
-			await pair.connect(lps).approve(main.address, lpLiquidity);
-			await main.connect(lps).lockLiquidity(lpLiquidity, true);
+				// Add liquidity
+				// prettier-ignore
+				r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
+				let pair = await getPairContract(auc.address, weth.address, accounts[0]);
+				lpLiquidity = await pair.balanceOf(lp.address);
 
-			// LP liquidity should be 0
-			curLiquidity = await pair.balanceOf(lp.address);
-			expect(curLiquidity.toString()).to.equal("0");
+				// Approve and lock liquidity
+				await pair.connect(lps).approve(main.address, lpLiquidity);
+				await main.connect(lps).lockLiquidity(lpLiquidity, true);
 
-			// LP liquidity should be locked, lock time should be recorded
-			let lt = await main.lockedLTN_WETH(lp.address);
-			expect(lt.amount.eq(lpLiquidity)).to.be.true;
-			const now = parseInt(Date.now() / 1000);
-			expect(lt.lockedAt.toNumber()).to.be.within(now - 1, now + 1);
+				// LP liquidity should be 0
+				curLiquidity = await pair.balanceOf(lp.address);
+				expect(curLiquidity.toString()).to.equal("0");
 
-			// Let the liquidity age
-			await new Promise((resolve) => setTimeout(resolve, 2000));
-			const now2 = parseInt(Date.now() / 1000);
-			lt = await main.lockedLTN_WETH(lp.address);
-			expect(lt.lockedAt.toNumber() < now2).to.be.true;
+				// LP liquidity should be locked, lock time should be recorded
+				lt = await main.lockedLTN_WETH(lp.address);
+				expect(lt.amount.eq(lpLiquidity)).to.be.true;
+				const now = parseInt(Date.now() / 1000);
+				expect(lt.lockedAt.toNumber()).to.be.within(now - 1, now + 1);
 
-			// Make Main the owner of the auction contract.
-			await auc.setOwnerOnce(main.address);
-			await main.connect(lps).claimLiquidityReward(true);
+				// Let the liquidity age
+				await new Promise((resolve) => setTimeout(resolve, 2000));
+				const now2 = parseInt(Date.now() / 1000);
+				lt = await main.lockedLTN_WETH(lp.address);
+				expect(lt.lockedAt.toNumber() < now2).to.be.true;
 
-			// LP should receive LTN reward
-			let ltnBal = await auc.balanceOf(lp.address);
-			expect(ltnBal.toNumber()).to.equal(1);
+				// Make Main the owner of the auction contract.
+				await auc.setOwnerOnce(main.address);
+			});
 
-			// Locked liquidity should be untouched but the lock time
-			// should be reset to a recent time greater than the previous.
-			let lt2 = await main.lockedLTN_WETH(lp.address);
-			expect(lt2.amount.eq(lpLiquidity)).to.be.true;
-			expect(lt2.lockedAt.toNumber() > lt.lockedAt.toNumber()).to.be.true;
+			it("should claim reward when sender has a liquidity ticket", async () => {
+				await main.connect(lps).claimLiquidityReward(true);
+
+				// LP should receive LTN reward
+				let ltnBal = await auc.balanceOf(lp.address);
+				expect(ltnBal.toNumber()).to.equal(1);
+
+				// Locked liquidity should be untouched but the lock time
+				// should be reset to a recent time greater than the previous.
+				let lt2 = await main.lockedLTN_WETH(lp.address);
+				expect(lt2.amount.eq(lpLiquidity)).to.be.true;
+				expect(lt2.lockedAt.toNumber() > lt.lockedAt.toNumber()).to.be.true;
+			});
+
+			describe("when K constant is set", () => {
+				it("should claim reward + K", async () => {
+					await main.setK(10);
+					await main.connect(lps).claimLiquidityReward(true);
+					let ltnBal = await auc.balanceOf(lp.address);
+					expect(ltnBal.toNumber()).to.equal(11);
+				});
+			});
 		});
 	});
 

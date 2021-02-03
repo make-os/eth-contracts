@@ -38,6 +38,9 @@ contract Main is DepositDIL {
     // fundingAddress is the address where contract fund can be transfered to.
     address public fundingAddress;
 
+    // rewardK is K constant in liquidity reward calculation
+    uint256 public rewardK;
+
     // lockedLTN_WETH is the locked LTN/WETH Uniswap pool tokens.
     mapping(address => LiquidityTicket) public lockedLTN_WETH;
 
@@ -204,6 +207,12 @@ contract Main is DepositDIL {
         return pair.totalSupply();
     }
 
+    /// @dev setK sets the funding address
+    /// @param _k is the new liquidity reward K constant.
+    function setK(uint256 _k) public isOwner() {
+        rewardK = _k;
+    }
+
     /// @dev calcLiquidityReward calculates an LP's reward given the
     /// liquidity, liquidity age and total liquidity.
     /// @param _liquidityAge is the age of the liquidity.
@@ -213,9 +222,10 @@ contract Main is DepositDIL {
         uint256 _liquidityAge,
         uint256 _liquidity,
         uint256 _totalLiquidity
-    ) public pure returns (uint256) {
-        return
+    ) public view returns (uint256) {
+        uint256 x =
             SM.sqrt(SM.div(SM.mul(_liquidity, _liquidityAge), _totalLiquidity));
+        return SM.add(x, rewardK);
     }
 
     /// @dev calcSenderLiquidityReward claims the current reward earned by a
