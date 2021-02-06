@@ -2,14 +2,25 @@
 pragma solidity ^0.6.6;
 
 import "./Owner.sol";
+import "./Dilithium.sol";
 import "./libraries/token/ERC20/ERC20.sol";
 
 /// @dev Latinum ERC20 contract
 contract Latinum is ERC20("Latinum", "LTN"), Owner {
-    bool ownerSet;
+    Dilithium public dil;
 
     // maxSupply is the initial maximum number of Latinum
     uint256 public maxSupply = 150000000000000000000000000;
+
+    constructor(address dilAddr) public {
+        dil = Dilithium(dilAddr);
+    }
+
+    /// @dev updateDILDecayState asks the DIL contract to update the account's
+    /// Dilithium decay state.
+    function updateDILDecayState(address account) public isOwner() {
+        dil.updateDecayState(account, block.timestamp);
+    }
 
     /// @dev mint mints and allocates new Latinum to an account.
     /// @param account is the recipient account.
@@ -17,17 +28,6 @@ contract Latinum is ERC20("Latinum", "LTN"), Owner {
     function mint(address account, uint256 amt) public isOwner() {
         require(totalSupply() + amt <= maxSupply, "Cannot exceed max supply");
         _mint(account, amt);
-    }
-
-    /// @dev setOwnerOnce sets the final owner.
-    /// Reverts if called a second time.
-    ///
-    /// Requires the caller to be the current owner.
-    ///
-    /// @param owner_ is the new owner.
-    function setOwnerOnce(address owner_) public isOwner() {
-        require(!ownerSet, "Owner already set");
-        owner = owner_;
-        ownerSet = true;
+        // dil.updateDecayState(account, block.timestamp);
     }
 }

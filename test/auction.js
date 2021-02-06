@@ -3,33 +3,17 @@ const Auction = artifacts.require("Auction");
 const truffleAssert = require("truffle-assertions");
 const dayjs = require("dayjs");
 const duration = require("dayjs/plugin/duration");
+const utils = require("./utils");
 dayjs.extend(duration);
-
-advanceTime = (time) => {
-	return new Promise((resolve, reject) => {
-		web3.currentProvider.send(
-			{
-				jsonrpc: "2.0",
-				method: "evm_increaseTime",
-				params: [time],
-				id: new Date().getTime(),
-			},
-			(err, result) => {
-				if (err) {
-					return reject(err);
-				}
-				return resolve(result);
-			},
-		);
-	});
-};
 
 contract("Auction", (accounts) => {
 	let auc, dil;
-	let ltnSupplyPerPeriod, minDILSupply, maxPeriods, minBid;
+	let ltnSupplyPerPeriod, minDILSupply, maxPeriods, minBid, decayHaltFee, decayDur;
 
 	beforeEach(async () => {
-		dil = await Dilithium.new({ from: accounts[0] });
+		decayHaltFee = web3.utils.toWei("2");
+		decayDur = 86400 * 60;
+		dil = await Dilithium.new(decayHaltFee, decayDur, { from: accounts[0] });
 
 		ltnSupplyPerPeriod = 100;
 		maxPeriods = 2;
@@ -42,12 +26,14 @@ contract("Auction", (accounts) => {
 			ltnSupplyPerPeriod,
 			minBid,
 		);
+
+		await dil.setLTNAddress(auc.address);
 	});
 
 	describe(".makePeriod", async function () {
 		describe("when no period exists", () => {
 			it("should revert with 'Minimum Dilithium supply not reached' when total DIL supply is less than the minimum required supply", async () => {
-				await advanceTime(0);
+				await utils.advanceTime(0);
 				auc = await Auction.new(
 					dil.address,
 					minDILSupply,
@@ -62,7 +48,7 @@ contract("Auction", (accounts) => {
 			});
 
 			it("should emit 'NewPeriod' event, add a new period and set its endTime to next 24 hours", async () => {
-				await advanceTime(0);
+				await utils.advanceTime(0);
 				auc = await Auction.new(
 					dil.address,
 					minDILSupply,
@@ -84,7 +70,7 @@ contract("Auction", (accounts) => {
 			});
 
 			it("should add a new period and set LTN supply", async () => {
-				await advanceTime(0);
+				await utils.advanceTime(0);
 				auc = await Auction.new(
 					dil.address,
 					minDILSupply,
@@ -103,7 +89,7 @@ contract("Auction", (accounts) => {
 		});
 
 		it("should not add another period if the last period has not ended", async () => {
-			await advanceTime(0);
+			await utils.advanceTime(0);
 			auc = await Auction.new(
 				dil.address,
 				minDILSupply,
@@ -120,7 +106,7 @@ contract("Auction", (accounts) => {
 		});
 
 		it("should revert with 'Auction has closed' if max number periods have been created", async () => {
-			await advanceTime(0);
+			await utils.advanceTime(0);
 			auc = await Auction.new(
 				dil.address,
 				minDILSupply,
@@ -132,11 +118,11 @@ contract("Auction", (accounts) => {
 			await dil.mint(accounts[0], minDILSupply);
 			let res = await auc.makePeriod();
 
-			await advanceTime(86400);
+			await utils.advanceTime(86400);
 			await auc.makePeriod();
 			expect((await auc.getNumOfPeriods()).toNumber()).to.equal(2);
 
-			await advanceTime(86400);
+			await utils.advanceTime(86400);
 			await truffleAssert.reverts(auc.makePeriod(), "Auction has closed");
 		});
 	});
@@ -180,7 +166,7 @@ contract("Auction", (accounts) => {
 
 			await dil.mint(accounts[0], minDILSupply);
 			let res = await auc.makePeriod();
-			await advanceTime(86600);
+			await utils.advanceTime(86600);
 			await truffleAssert.reverts(auc.bid(1000), "Auction has closed");
 		});
 
@@ -272,7 +258,7 @@ contract("Auction", (accounts) => {
 				// place bids
 				await auc.bid(500, { from: accounts[1] });
 				await auc.bid(500, { from: accounts[1] });
-				await advanceTime(86500);
+				await utils.advanceTime(86500);
 				await auc.bid(500, { from: accounts[1] });
 			});
 
@@ -384,7 +370,7 @@ contract("Auction", (accounts) => {
 					);
 					await unlock(accounts[1], 500);
 					await bid(accounts[1], 500);
-					await advanceTime(86500);
+					await utils.advanceTime(86500);
 					await auc.claim({ from: accounts[1] });
 					expect((await auc.balanceOf(accounts[1])).toNumber()).to.equal(1000);
 
@@ -426,7 +412,7 @@ contract("Auction", (accounts) => {
 					await unlock(accounts[1], 1200);
 					await bid(accounts[1], 500);
 					await bid(accounts[1], 700);
-					await advanceTime(86500);
+					await utils.advanceTime(86500);
 					await auc.claim({ from: accounts[1] });
 					expect((await auc.balanceOf(accounts[1])).toNumber()).to.equal(999);
 
@@ -452,7 +438,7 @@ contract("Auction", (accounts) => {
 					await bid(accounts[2], 700);
 					await unlock(accounts[3], 200);
 					await bid(accounts[3], 200);
-					await advanceTime(86500);
+					await utils.advanceTime(86500);
 					await auc.claim({ from: accounts[1] });
 					await auc.claim({ from: accounts[2] });
 					await auc.claim({ from: accounts[3] });
@@ -488,7 +474,7 @@ contract("Auction", (accounts) => {
 					await bid(accounts[2], 700);
 					await unlock(accounts[3], 200);
 					await bid(accounts[3], 200);
-					await advanceTime(86500);
+					await utils.advanceTime(86500);
 					await auc.claim({ from: accounts[1] });
 					expect((await auc.balanceOf(accounts[1])).toNumber()).to.equal(357);
 					expect((await auc.balanceOf(accounts[2])).toNumber()).to.equal(0);
@@ -524,9 +510,9 @@ contract("Auction", (accounts) => {
 					);
 					await unlock(accounts[1], 1000);
 					await bid(accounts[1], 500);
-					advanceTime(86500);
+					utils.advanceTime(86500);
 					await bid(accounts[1], 500);
-					await advanceTime(86500);
+					await utils.advanceTime(86500);
 					expect((await auc.getNumOfPeriods()).toNumber()).to.equal(2);
 					await auc.claim({ from: accounts[1] });
 					expect((await auc.balanceOf(accounts[1])).toNumber()).to.equal(2000);

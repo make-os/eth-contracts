@@ -16,7 +16,9 @@ contract("Main", (accounts) => {
 		maxSwappableELL,
 		fundingAddr,
 		dilDepositFee,
-		maxInitialLiquidityFund;
+		maxInitialLiquidityFund,
+		decayHaltFee,
+		decayDur;
 
 	beforeEach(async () => {
 		ltnSupplyPerPeriod = 100;
@@ -28,7 +30,9 @@ contract("Main", (accounts) => {
 			from: accounts[3],
 		});
 
-		dil = await Dilithium.new({ from: accounts[0] });
+		decayHaltFee = web3.utils.toWei("2");
+		decayDur = 86400 * 60;
+		dil = await Dilithium.new(decayHaltFee, decayDur, { from: accounts[0] });
 
 		auc = await Auction.new(
 			dil.address,
@@ -38,6 +42,8 @@ contract("Main", (accounts) => {
 			minBid,
 			{ from: accounts[0] },
 		);
+
+		await dil.setLTNAddress(auc.address);
 
 		maxSwappableELL = 10000;
 		fundingAddr = accounts[5];

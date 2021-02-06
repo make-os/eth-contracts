@@ -5,10 +5,13 @@ const Auction = artifacts.require("Auction");
 module.exports = async function (deployer, network, accounts) {
 	const sender = "0xee3C22B93C53f9F97D9b94e1D016818aaC5335AC";
 
-	// Deploy dilithium contract.
-	await deployer.deploy(Dilithium, { from: sender });
+	// Deploy the Dilithium contract.
+	const DecayHaltFee = web3.utils.toWei("2");
+	const DecayDuration = 86400 * 60;
+	await deployer.deploy(Dilithium, DecayHaltFee, DecayDuration, { from: sender });
+	const dil = await Dilithium.deployed();
 
-	// Deploy auction contract
+	// Deploy the Auction contract.
 	const MinRequiredDILSupply = 1000;
 	const MaxPeriods = 1;
 	const LTNSupplyPerPeriod = 10;
@@ -22,14 +25,18 @@ module.exports = async function (deployer, network, accounts) {
 		MinBidAmount,
 		{ from: sender },
 	);
-
-	// Mint non-public supply
-	const nonPublicSupplyAddr = accounts[4];
-	const nonPublicSupply = "75000000000000000000000000";
 	const auc = await Auction.deployed();
+
+	// Pass the Latinum/Auction contract address to the Dilithium contract,
+	// so the Dilithium contract know the address of the Latinum/Auction contract.
+	await dil.setLTNAddress(auc.address);
+
+	// Pre-mine non-public supply of Latinum.
+	const nonPublicSupplyAddr = accounts[4];
+	const nonPublicSupply = web3.utils.toWei("75000000");
 	await auc.mint(nonPublicSupplyAddr, nonPublicSupply);
 
-	// Deploy main contract
+	// Deploy Main contract
 	const ELLContractAddr = "0x9d9aeea38de4643066bc09d3b210737b59af3a93";
 	const MaxSwappableELL = "18984565000000000000000000"; // 18984565
 	const FundingAddr = accounts[5];
@@ -47,10 +54,8 @@ module.exports = async function (deployer, network, accounts) {
 		{ from: sender },
 	);
 
-	// Set auction contract owner
+	// Set the Main contract as the new owner of the Auction
+	// and Dilithium contract to Maim
 	await auc.setOwnerOnce(Main.address, { from: sender });
-
-	// Set dilithium contract owner
-	const dil = await Dilithium.deployed();
 	await dil.setOwnerOnce(Main.address, { from: sender });
 };

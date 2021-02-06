@@ -7,8 +7,6 @@ import "./SafeMath.sol";
  * @dev Provides math functions.
  */
 library Math {
-    event X(uint256 x);
-
     /// @dev getBPSOfAInB calculate the percentage of a in b and returns the
     /// base point of the percentage. 'a' is called up before use and scaled
     /// back down before base point calculation.

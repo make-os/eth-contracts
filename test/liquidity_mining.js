@@ -1,7 +1,6 @@
 const Waffle = require("ethereum-waffle");
 const Ethers = require("ethers");
 const truffleAssert = require("truffle-assertions");
-const dayjs = require("dayjs");
 const web3 = require("web3");
 const UniswapV2FactoryBytecode = require("@uniswap/v2-core/build/UniswapV2Factory.json");
 const AuctionBytecode = require("../build/contracts/Auction.json");
@@ -13,7 +12,7 @@ const WETHBytecode = require("@uniswap/v2-periphery/build/WETH9.json");
 const { expect } = require("chai");
 
 describe("LiquidityMining", function () {
-	this.timeout(10000);
+	this.timeout(20000);
 
 	let provider = new Waffle.MockProvider({
 		ganacheOptions: {
@@ -31,7 +30,9 @@ describe("LiquidityMining", function () {
 		maxSwappableELL,
 		fundingAddr,
 		dilDepositFee,
-		maxInitialLiquidityFund;
+		maxInitialLiquidityFund,
+		decayHaltFee,
+		decayDur;
 	let r;
 	let lp;
 	let lps;
@@ -52,7 +53,12 @@ describe("LiquidityMining", function () {
 			weth.address,
 		]);
 
-		dil = await Waffle.deployContract(accounts[0], DilithiumBytecode, []);
+		decayHaltFee = web3.utils.toWei("2");
+		decayDur = 86400 * 60;
+		dil = await Waffle.deployContract(accounts[0], DilithiumBytecode, [
+			decayHaltFee,
+			decayDur,
+		]);
 
 		ltnSupplyPerPeriod = 100;
 		maxPeriods = 1;
@@ -65,6 +71,8 @@ describe("LiquidityMining", function () {
 			ltnSupplyPerPeriod,
 			minBid,
 		]);
+
+		await dil.setLTNAddress(auc.address);
 
 		main = await Waffle.deployContract(accounts[0], MainBytecode, [
 			"100000000000000000",
@@ -143,8 +151,14 @@ describe("LiquidityMining", function () {
 		});
 	}
 
-	// prettier-ignore
-	function addLiquidityEth(token,desiredTokenAmt,minTokenAmt,desiredETHAmt,amountETHMin,liquidityTo) {
+	function addLiquidityEth(
+		token,
+		desiredTokenAmt,
+		minTokenAmt,
+		desiredETHAmt,
+		amountETHMin,
+		liquidityTo,
+	) {
 		return new Promise(async (res, rej) => {
 			try {
 				// prettier-ignore
@@ -168,7 +182,7 @@ describe("LiquidityMining", function () {
 			r = await addLiquidityEth(auc.address, ltnAmt, ltnAmt, ethAmt, ethAmt, lp.address);
 
 			await truffleAssert.reverts(
-				main.connect(lps).lockLiquidity(100000, true),
+				main.connect(lps).lockLiquidity(100000),
 				"Amount not approved",
 			);
 		});
@@ -186,7 +200,7 @@ describe("LiquidityMining", function () {
 			await pair.connect(lps).approve(main.address, lpLiquidity.sub("1"));
 
 			await truffleAssert.reverts(
-				main.connect(lps).lockLiquidity(lpLiquidity, true),
+				main.connect(lps).lockLiquidity(lpLiquidity),
 				"Amount not approved",
 			);
 		});
@@ -205,7 +219,7 @@ describe("LiquidityMining", function () {
 				let lpLiquidity = await pair.balanceOf(lp.address);
 				await pair.connect(lps).approve(main.address, lpLiquidity);
 
-				await main.connect(lps).lockLiquidity(lpLiquidity, true);
+				await main.connect(lps).lockLiquidity(lpLiquidity);
 
 				let curLiquidity = await pair.balanceOf(lp.address);
 				expect(curLiquidity.toString()).to.equal("0");
@@ -232,7 +246,7 @@ describe("LiquidityMining", function () {
 				let pair = await getPairContract(auc.address, weth.address, accounts[0]);
 				let lpLiquidity = await pair.balanceOf(lp.address);
 				await pair.connect(lps).approve(main.address, lpLiquidity);
-				await main.connect(lps).lockLiquidity(lpLiquidity, true);
+				await main.connect(lps).lockLiquidity(lpLiquidity);
 				let lt = await main.lockedLTN_WETH(lp.address);
 				expect(lt.amount.eq(lpLiquidity)).to.be.true;
 
@@ -247,7 +261,7 @@ describe("LiquidityMining", function () {
 				pair = await getPairContract(auc.address, weth.address, accounts[0]);
 				let lpLiquidity2 = await pair.balanceOf(lp.address);
 				await pair.connect(lps).approve(main.address, lpLiquidity2);
-				await main.connect(lps).lockLiquidity(lpLiquidity2, true);
+				await main.connect(lps).lockLiquidity(lpLiquidity2);
 
 				// LP ticket should be the sum of all previously locked liquidity
 				let lt2 = await main.lockedLTN_WETH(lp.address);
@@ -257,61 +271,9 @@ describe("LiquidityMining", function () {
 		});
 	});
 
-	describe(".lockLiquidity (DIL/WETH)", () => {
-		it("should revert with 'Amount not approved' if sender has not approved liquidity amount", async () => {
-			let dilAmt = web3.utils.toWei("50");
-			await mintDIL(lp.address, dilAmt);
-			await approveDIL(lp.address, router.address, dilAmt);
-
-			let ethAmt = web3.utils.toWei("0.1");
-			r = await addLiquidityEth(dil.address, dilAmt, dilAmt, ethAmt, ethAmt, lp.address);
-
-			await truffleAssert.reverts(
-				main.connect(lps).lockLiquidity(100000, false),
-				"Amount not approved",
-			);
-		});
-
-		describe("when sender has approved the liquidity amount", () => {
-			it("should transfer approved liquidity and create a liquidity ticket", async () => {
-				let dilAmt = web3.utils.toWei("50");
-				await mintDIL(lp.address, dilAmt);
-				await approveDIL(lp.address, router.address, dilAmt);
-
-				let ethAmt = web3.utils.toWei("0.1");
-				r = await addLiquidityEth(
-					dil.address,
-					dilAmt,
-					dilAmt,
-					ethAmt,
-					ethAmt,
-					lp.address,
-				);
-
-				let pair = await getPairContract(dil.address, weth.address, accounts[0]);
-				let lpLiquidity = await pair.balanceOf(lp.address);
-				await pair.connect(lps).approve(main.address, lpLiquidity);
-
-				await main.connect(lps).lockLiquidity(lpLiquidity, false);
-
-				let curLiquidity = await pair.balanceOf(lp.address);
-				expect(curLiquidity.toString()).to.equal("0");
-
-				let contractLiquidity = await pair.balanceOf(main.address);
-				expect(contractLiquidity.eq(lpLiquidity)).to.be.true;
-
-				let lt = await main.lockedDIL_WETH(lp.address);
-				expect(lt.amount.eq(lpLiquidity)).to.be.true;
-				expect(lt.lockedAt.toNumber() > 0).to.be.true;
-				expect(lt.LTN_ETH).to.equal(false);
-				expect(lt.DIL_ETH).to.equal(true);
-			});
-		});
-	});
-
 	describe(".unlockLiquidity (LTN/WETH)", () => {
 		it("should revert when sender has no liquidity ticket", async () => {
-			await truffleAssert.reverts(main.unlockLiquidity(true), "Liquidity not found");
+			await truffleAssert.reverts(main.unlockLiquidity(), "Liquidity not found");
 		});
 
 		it("should return locked liquidity and remove liquidity ticket", async () => {
@@ -319,12 +281,12 @@ describe("LiquidityMining", function () {
 			await mintLTN(lp.address, ltnAmt);
 			await approveLTN(lp.address, router.address, ltnAmt);
 			let ethAmt = web3.utils.toWei("0.1");
-			// prettier-ignore
-			r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
+
+			r = await addLiquidityEth(auc.address, ltnAmt, ltnAmt, ethAmt, ethAmt, lp.address);
 			let pair = await getPairContract(auc.address, weth.address, accounts[0]);
 			let lpLiquidity = await pair.balanceOf(lp.address);
 			await pair.connect(lps).approve(main.address, lpLiquidity);
-			await main.connect(lps).lockLiquidity(lpLiquidity, true);
+			await main.connect(lps).lockLiquidity(lpLiquidity);
 
 			// Check that the contract has the liquidity
 			let contractLiquidity = await pair.balanceOf(main.address);
@@ -338,7 +300,7 @@ describe("LiquidityMining", function () {
 			expect(lt.amount.eq(lpLiquidity)).to.be.true;
 
 			// Unlock the liquidity
-			await main.connect(lps).unlockLiquidity(true);
+			await main.connect(lps).unlockLiquidity();
 
 			// Should revert because the liquidity ticket no longer exists
 			lt = await main.lockedLTN_WETH(lp.address);
@@ -355,56 +317,10 @@ describe("LiquidityMining", function () {
 		});
 	});
 
-	describe(".unlockLiquidity (DIL/WETH)", () => {
-		it("should revert when sender has no liquidity ticket", async () => {
-			await truffleAssert.reverts(main.unlockLiquidity(false), "Liquidity not found");
-		});
-
-		it("should return locked liquidity and remove liquidity ticket", async () => {
-			let dilAmt = web3.utils.toWei("50");
-			await mintDIL(lp.address, dilAmt);
-			await approveDIL(lp.address, router.address, dilAmt);
-			let ethAmt = web3.utils.toWei("0.1");
-			// prettier-ignore
-			r = await addLiquidityEth(dil.address,dilAmt,dilAmt,ethAmt,ethAmt,lp.address);
-			let pair = await getPairContract(dil.address, weth.address, accounts[0]);
-			let lpLiquidity = await pair.balanceOf(lp.address);
-			await pair.connect(lps).approve(main.address, lpLiquidity);
-			await main.connect(lps).lockLiquidity(lpLiquidity, false);
-
-			// Check that the contract has the liquidity
-			let contractLiquidity = await pair.balanceOf(main.address);
-			expect(contractLiquidity.toString()).to.equal(lpLiquidity.toString());
-
-			// Check that the LP no longer has the liquidity
-			let curLPLiquidity = await pair.balanceOf(lp.address);
-			expect(curLPLiquidity.toString()).to.equal("0");
-
-			let lt = await main.lockedDIL_WETH(lp.address);
-			expect(lt.amount.eq(lpLiquidity)).to.be.true;
-
-			// Unlock the liquidity
-			await main.connect(lps).unlockLiquidity(false);
-
-			// Should revert because the liquidity ticket no longer exists
-			lt = await main.lockedDIL_WETH(lp.address);
-			expect(lt.amount.toString()).to.equal("0");
-			expect(lt.lockedAt.toString()).to.equal("0");
-
-			// Check that the liquidity is back in the LP's account.
-			curLPLiquidity = await pair.balanceOf(lp.address);
-			expect(curLPLiquidity.toString()).to.equal(lpLiquidity.toString());
-
-			// Check that the contract no longer has the liquidity
-			contractLiquidity = await pair.balanceOf(main.address);
-			expect(contractLiquidity.toString()).to.equal("0");
-		});
-	});
-
 	describe(".calcSenderLiquidityReward", () => {
 		it("should revert when sender has no liquidity ticket", async () => {
 			await truffleAssert.reverts(
-				main.calcSenderLiquidityReward(true, 0),
+				main.calcSenderLiquidityReward(0),
 				"Liquidity not found",
 			);
 		});
@@ -424,7 +340,7 @@ describe("LiquidityMining", function () {
 			// Approve and lock liquidity
 			const signer = lps;
 			await pair.connect(signer).approve(main.address, lpLiquidity);
-			await main.connect(signer).lockLiquidity(lpLiquidity, true);
+			await main.connect(signer).lockLiquidity(lpLiquidity);
 
 			// LP liquidity should be 0
 			curLiquidity = await pair.balanceOf(lp.address);
@@ -432,14 +348,14 @@ describe("LiquidityMining", function () {
 
 			// Let the liquidity age
 			const future = parseInt((Date.now() + 2000) / 1000);
-			let reward = await main.connect(signer).calcSenderLiquidityReward(true, future);
+			let reward = await main.connect(signer).calcSenderLiquidityReward(future);
 			expect(reward.toNumber()).to.equal(1);
 		});
 	});
 
 	describe(".claimLiquidityReward (LTN/WETH)", () => {
 		it("should revert when sender has no liquidity ticket", async () => {
-			await truffleAssert.reverts(main.claimLiquidityReward(true), "Liquidity not found");
+			await truffleAssert.reverts(main.claimLiquidityReward(), "Liquidity not found");
 		});
 
 		describe("when sender has liquidity", () => {
@@ -452,14 +368,20 @@ describe("LiquidityMining", function () {
 				let ethAmt = web3.utils.toWei("30");
 
 				// Add liquidity
-				// prettier-ignore
-				r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
+				r = await addLiquidityEth(
+					auc.address,
+					ltnAmt,
+					ltnAmt,
+					ethAmt,
+					ethAmt,
+					lp.address,
+				);
 				let pair = await getPairContract(auc.address, weth.address, accounts[0]);
 				lpLiquidity = await pair.balanceOf(lp.address);
 
 				// Approve and lock liquidity
 				await pair.connect(lps).approve(main.address, lpLiquidity);
-				await main.connect(lps).lockLiquidity(lpLiquidity, true);
+				await main.connect(lps).lockLiquidity(lpLiquidity);
 
 				// LP liquidity should be 0
 				curLiquidity = await pair.balanceOf(lp.address);
@@ -482,7 +404,7 @@ describe("LiquidityMining", function () {
 			});
 
 			it("should claim reward when sender has a liquidity ticket", async () => {
-				await main.connect(lps).claimLiquidityReward(true);
+				await main.connect(lps).claimLiquidityReward();
 
 				// LP should receive LTN reward
 				let ltnBal = await auc.balanceOf(lp.address);
@@ -498,64 +420,11 @@ describe("LiquidityMining", function () {
 			describe("when K constant is set", () => {
 				it("should claim reward + K", async () => {
 					await main.setK(10);
-					await main.connect(lps).claimLiquidityReward(true);
+					await main.connect(lps).claimLiquidityReward();
 					let ltnBal = await auc.balanceOf(lp.address);
 					expect(ltnBal.toNumber()).to.equal(11);
 				});
 			});
-		});
-	});
-
-	describe(".claimLiquidityReward (DIL/WETH)", () => {
-		it("should revert when sender has no liquidity ticket", async () => {
-			await truffleAssert.reverts(main.claimLiquidityReward(true), "Liquidity not found");
-		});
-
-		it("should calculate reward when sender has a liquidity ticket", async () => {
-			let dilAmt = web3.utils.toWei("500");
-			await mintDIL(lp.address, dilAmt);
-			await approveDIL(lp.address, router.address, dilAmt);
-			let ethAmt = web3.utils.toWei("30");
-
-			// Add liquidity
-			// prettier-ignore
-			r = await addLiquidityEth(dil.address,dilAmt,dilAmt,ethAmt,ethAmt,lp.address);
-			let pair = await getPairContract(dil.address, weth.address, accounts[0]);
-			let lpLiquidity = await pair.balanceOf(lp.address);
-
-			// Approve and lock liquidity
-			await pair.connect(lps).approve(main.address, lpLiquidity);
-			await main.connect(lps).lockLiquidity(lpLiquidity, false);
-
-			// LP liquidity should be 0
-			curLiquidity = await pair.balanceOf(lp.address);
-			expect(curLiquidity.toString()).to.equal("0");
-
-			// LP liquidity should be locked, lock time should be recorded
-			let lt = await main.lockedDIL_WETH(lp.address);
-			expect(lt.amount.eq(lpLiquidity)).to.be.true;
-			const now = parseInt(Date.now() / 1000);
-			expect(lt.lockedAt.toNumber()).to.be.within(now - 1, now + 1);
-
-			// Let the liquidity age
-			await new Promise((resolve) => setTimeout(resolve, 2000));
-			const now2 = parseInt(Date.now() / 1000);
-			lt = await main.lockedDIL_WETH(lp.address);
-			expect(lt.lockedAt.toNumber() < now2).to.be.true;
-
-			// Make Main the owner of the auction contract.
-			await auc.setOwnerOnce(main.address);
-			await main.connect(lps).claimLiquidityReward(false);
-
-			// LP should receive LTN reward
-			let ltnBal = await auc.balanceOf(lp.address);
-			expect(ltnBal.toNumber()).to.equal(1);
-
-			// Locked liquidity should be untouched but the lock time
-			// should be reset to a recent time greater than the previous.
-			let lt2 = await main.lockedDIL_WETH(lp.address);
-			expect(lt2.amount.eq(lpLiquidity)).to.be.true;
-			expect(lt2.lockedAt.toNumber() > lt.lockedAt.toNumber()).to.be.true;
 		});
 	});
 
@@ -593,25 +462,3 @@ describe("LiquidityMining", function () {
 		});
 	});
 });
-
-// getLog(provider,weth.address,
-// 	"event Deposit(address indexed dst, uint256 wad);", (log) => { console.log(log) });
-function getLog(provider, contractAddr, eventAbi, cb) {
-	return new Promise(async (res, rej) => {
-		let iface = new Ethers.utils.Interface([eventAbi]);
-		provider
-			.getLogs({
-				fromBlock: 0,
-				toBlock: "latest",
-				address: contractAddr,
-			})
-			.then((logs) => {
-				logs.forEach((log) => {
-					let d = iface.parseLog(log);
-					// cb(d);
-				});
-				res();
-			})
-			.catch(rej);
-	});
-}

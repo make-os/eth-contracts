@@ -44,15 +44,12 @@ contract Main is DepositDIL {
     // lockedLTN_WETH is the locked LTN/WETH Uniswap pool tokens.
     mapping(address => LiquidityTicket) public lockedLTN_WETH;
 
-    // lockedDIL_WETH is the locked DIL/WETH Uniswap pool tokens.
-    mapping(address => LiquidityTicket) public lockedDIL_WETH;
-
     // router is the Uniswap v2 router
     UniswapV2Router02 router;
 
     event SwappedELL(address account, uint256 amount);
-    event LiquidityLocked(address owner, uint256 amount, bool LTN_ETH);
-    event LiquidityUnLocked(address owner, uint256 amount, bool LTN_ETH);
+    event LiquidityLocked(address owner, uint256 amount);
+    event LiquidityUnLocked(address owner, uint256 amount);
 
     /// @dev initializes the contract
     /// @param _dilDepositFee is the DIL deposit fee.
@@ -128,13 +125,11 @@ contract Main is DepositDIL {
         emit SwappedELL(from, swapAmount);
     }
 
-    /// @dev lockLiquidity locks LTN/ETH and DIL/ETH Uniswap liquidity.
+    /// @dev lockLiquidity locks LTN/ETH Uniswap liquidity.
     /// @param amount is the number of liquidity to lock. Up to this amount
     /// must have been approved by the sender.
-    /// @param ltnEth indicates that the LTN/ETH liquidity should be locked
-    /// instead of the DIL/ETH pool liquidity
-    function lockLiquidity(uint256 amount, bool ltnEth) external {
-        address token = (ltnEth) ? address(auc) : address(dil);
+    function lockLiquidity(uint256 amount) external {
+        address token = address(auc);
         IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
         IUniswapV2Pair pair =
             IUniswapV2Pair(factory.getPair(token, router.WETH()));
@@ -146,61 +141,40 @@ contract Main is DepositDIL {
 
         pair.transferFrom(msg.sender, address(this), amount);
 
-        if (ltnEth) {
-            lockedLTN_WETH[msg.sender].amount = SM.add(
-                lockedLTN_WETH[msg.sender].amount,
-                amount
-            );
-            lockedLTN_WETH[msg.sender].LTN_ETH = true;
-            lockedLTN_WETH[msg.sender].DIL_ETH = false;
-            if (lockedLTN_WETH[msg.sender].lockedAt == 0) {
-                lockedLTN_WETH[msg.sender].lockedAt = block.timestamp;
-            }
-        } else {
-            lockedDIL_WETH[msg.sender].amount = SM.add(
-                lockedDIL_WETH[msg.sender].amount,
-                amount
-            );
-            lockedDIL_WETH[msg.sender].LTN_ETH = false;
-            lockedDIL_WETH[msg.sender].DIL_ETH = true;
-            if (lockedDIL_WETH[msg.sender].lockedAt == 0) {
-                lockedDIL_WETH[msg.sender].lockedAt = block.timestamp;
-            }
+        lockedLTN_WETH[msg.sender].amount = SM.add(
+            lockedLTN_WETH[msg.sender].amount,
+            amount
+        );
+        lockedLTN_WETH[msg.sender].LTN_ETH = true;
+        lockedLTN_WETH[msg.sender].DIL_ETH = false;
+        if (lockedLTN_WETH[msg.sender].lockedAt == 0) {
+            lockedLTN_WETH[msg.sender].lockedAt = block.timestamp;
         }
 
-        emit LiquidityLocked(msg.sender, amount, ltnEth);
+        emit LiquidityLocked(msg.sender, amount);
     }
 
-    /// @dev unlockLiquidity unlocks locked LTN/ETH or DIL/ETH Uniswap
+    /// @dev unlockLiquidity unlocks locked LTN/ETH Uniswap
     /// liquidity.
-    /// @param ltnEth indicates that the LTN/ETH liquidity should be unlocked
-    /// instead of the DIL/ETH pool liquidity
-    function unlockLiquidity(bool ltnEth) external {
-        address token = (ltnEth) ? address(auc) : address(dil);
+    function unlockLiquidity() external {
+        address token = address(auc);
         IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
         IUniswapV2Pair pair =
             IUniswapV2Pair(factory.getPair(token, router.WETH()));
 
-        LiquidityTicket memory ticket =
-            (ltnEth) ? lockedLTN_WETH[msg.sender] : lockedDIL_WETH[msg.sender];
+        LiquidityTicket memory ticket = lockedLTN_WETH[msg.sender];
         require(ticket.lockedAt > 0, "Liquidity not found");
 
         pair.transfer(msg.sender, ticket.amount);
 
-        if (ltnEth) {
-            delete lockedLTN_WETH[msg.sender];
-        } else {
-            delete lockedDIL_WETH[msg.sender];
-        }
+        delete lockedLTN_WETH[msg.sender];
 
-        emit LiquidityUnLocked(msg.sender, ticket.amount, ltnEth);
+        emit LiquidityUnLocked(msg.sender, ticket.amount);
     }
 
-    /// @dev totalLiquidity returns the total liquidity in a LTN/WETH or
-    /// DIL/WETH pool.
-    /// @param ltnEth targets the LTN/ETH pool liquidity, otherwise, the DIL/ETH.
-    function totalLiquidity(bool ltnEth) public view returns (uint256) {
-        address token = (ltnEth) ? address(auc) : address(dil);
+    /// @dev totalLiquidity returns the total liquidity in a LTN/WETH pool.
+    function totalLiquidity() public view returns (uint256) {
+        address token = address(auc);
         IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
         IUniswapV2Pair pair =
             IUniswapV2Pair(factory.getPair(token, router.WETH()));
@@ -230,46 +204,38 @@ contract Main is DepositDIL {
 
     /// @dev calcSenderLiquidityReward claims the current reward earned by a
     /// liquidity ticket.
-    /// @param _ltnEth targets the LTN/ETH pool liquidity, otherwise, the DIL/ETH.
     /// @param _now is the current unix time (preferrable the last block timestamp).
-    function calcSenderLiquidityReward(bool _ltnEth, uint256 _now)
+    function calcSenderLiquidityReward(uint256 _now)
         public
         view
         returns (uint256)
     {
-        LiquidityTicket memory ticket =
-            (_ltnEth) ? lockedLTN_WETH[msg.sender] : lockedDIL_WETH[msg.sender];
+        LiquidityTicket memory ticket = lockedLTN_WETH[msg.sender];
         require(ticket.lockedAt > 0, "Liquidity not found");
 
         return
             calcLiquidityReward(
                 _now - ticket.lockedAt,
                 ticket.amount,
-                totalLiquidity(_ltnEth)
+                totalLiquidity()
             );
     }
 
     /// @dev claimLiquidityReward claims the current reward earned by a
     /// liquidity ticket.
-    /// @param ltnEth targets the LTN/ETH pool liquidity, otherwise, the DIL/ETH.
-    function claimLiquidityReward(bool ltnEth) public {
-        LiquidityTicket memory ticket =
-            (ltnEth) ? lockedLTN_WETH[msg.sender] : lockedDIL_WETH[msg.sender];
+    function claimLiquidityReward() public {
+        LiquidityTicket memory ticket = lockedLTN_WETH[msg.sender];
         require(ticket.lockedAt > 0, "Liquidity not found");
 
         uint256 reward =
             calcLiquidityReward(
                 block.timestamp - ticket.lockedAt,
                 ticket.amount,
-                totalLiquidity(ltnEth)
+                totalLiquidity()
             );
 
         ticket.lockedAt = block.timestamp;
-        if (ltnEth) {
-            lockedLTN_WETH[msg.sender] = ticket;
-        } else {
-            lockedDIL_WETH[msg.sender] = ticket;
-        }
+        lockedLTN_WETH[msg.sender] = ticket;
 
         auc.mint(msg.sender, 1 wei * reward);
     }

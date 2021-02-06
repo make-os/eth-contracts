@@ -5,31 +5,17 @@ import "../../GSN/Context.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IERC20.sol";
 import "../../math/SafeMath.sol";
 
+struct DecayState {
+    uint256 rate;
+    uint256 startTime;
+    uint256 endTime;
+}
+
 /**
- * @dev Implementation of the {IERC20} interface.
- *
- * This implementation is agnostic to the way tokens are created. This means
- * that a supply mechanism has to be added in a derived contract using {_mint}.
- * For a generic mechanism see {ERC20PresetMinterPauser}.
- *
- * TIP: For a detailed writeup see our guide
- * https://forum.zeppelin.solutions/t/how-to-implement-erc20-supply-mechanisms/226[How
- * to implement supply mechanisms].
- *
- * We have followed general OpenZeppelin guidelines: functions revert instead
- * of returning `false` on failure. This behavior is nonetheless conventional
- * and does not conflict with the expectations of ERC20 applications.
- *
- * Additionally, an {Approval} event is emitted on calls to {transferFrom}.
- * This allows applications to reconstruct the allowance for all accounts just
- * by listening to said events. Other implementations of the EIP may not emit
- * these events, as it isn't required by the specification.
- *
- * Finally, the non-standard {decreaseAllowance} and {increaseAllowance}
- * functions have been added to mitigate the well-known issues around setting
- * allowances. See {IERC20-approve}.
+ * @dev Implementation of the {IERC20} interface with
+ * support for decaying balances.
  */
-contract ERC20 is Context, IERC20 {
+contract ERC20Decayable is Context, IERC20 {
     using SM for uint256;
 
     mapping(address => uint256) private _balances;
@@ -37,6 +23,15 @@ contract ERC20 is Context, IERC20 {
     mapping(address => mapping(address => uint256)) private _allowances;
 
     uint256 private _totalSupply;
+
+    // decayStates holds account decay status.
+    mapping(address => DecayState) decayStates;
+
+    // decayHaltFee is the number of DIL required to stop 1 DIL from decaying.
+    uint256 public decayHaltFee;
+
+    // decayDur is the number of seconds it takes for DIL to be fully decayed.
+    uint256 public decayDur;
 
     string private _name;
     string private _symbol;
@@ -78,7 +73,7 @@ contract ERC20 is Context, IERC20 {
      * be displayed to a user as `5,05` (`505 / 10 ** 2`).
      *
      * Tokens usually opt for a value of 18, imitating the relationship between
-     * Ether and Wei. This is the value {ERC20} uses, unless {_setupDecimals} is
+     * Ether and Wei. This is the value {ERC20Decayable} uses, unless {_setupDecimals} is
      * called.
      *
      * NOTE: This information is only used for _display_ purposes: it in
@@ -94,19 +89,6 @@ contract ERC20 is Context, IERC20 {
      */
     function totalSupply() public view virtual override returns (uint256) {
         return _totalSupply;
-    }
-
-    /**
-     * @dev See {IERC20-balanceOf}.
-     */
-    function balanceOf(address account)
-        public
-        view
-        virtual
-        override
-        returns (uint256)
-    {
-        return _balances[account];
     }
 
     /**
@@ -161,7 +143,7 @@ contract ERC20 is Context, IERC20 {
      * @dev See {IERC20-transferFrom}.
      *
      * Emits an {Approval} event indicating the updated allowance. This is not
-     * required by the EIP. See the note at the beginning of {ERC20}.
+     * required by the EIP. See the note at the beginning of {ERC20Decayable}.
      *
      * Requirements:
      *
@@ -181,7 +163,7 @@ contract ERC20 is Context, IERC20 {
             _msgSender(),
             _allowances[sender][_msgSender()].sub(
                 amount,
-                "ERC20: transfer amount exceeds allowance"
+                "ERC20Decayable: transfer amount exceeds allowance"
             )
         );
         return true;
@@ -236,7 +218,7 @@ contract ERC20 is Context, IERC20 {
             spender,
             _allowances[_msgSender()][spender].sub(
                 subtractedValue,
-                "ERC20: decreased allowance below zero"
+                "ERC20Decayable: decreased allowance below zero"
             )
         );
         return true;
@@ -261,14 +243,22 @@ contract ERC20 is Context, IERC20 {
         address recipient,
         uint256 amount
     ) internal virtual {
-        require(sender != address(0), "ERC20: transfer from the zero address");
-        require(recipient != address(0), "ERC20: transfer to the zero address");
+        require(
+            sender != address(0),
+            "ERC20Decayable: transfer from the zero address"
+        );
+        require(
+            recipient != address(0),
+            "ERC20Decayable: transfer to the zero address"
+        );
 
         _beforeTokenTransfer(sender, recipient, amount);
+        _burnDecayed(sender);
+        _burnDecayed(recipient);
 
-        _balances[sender] = _balances[sender].sub(
+        _balances[sender] = balanceOf(sender).sub(
             amount,
-            "ERC20: transfer amount exceeds balance"
+            "ERC20Decayable: transfer amount exceeds balance"
         );
         _balances[recipient] = _balances[recipient].add(amount);
         emit Transfer(sender, recipient, amount);
@@ -284,9 +274,13 @@ contract ERC20 is Context, IERC20 {
      * - `to` cannot be the zero address.
      */
     function _mint(address account, uint256 amount) internal virtual {
-        require(account != address(0), "ERC20: mint to the zero address");
+        require(
+            account != address(0),
+            "ERC20Decayable: mint to the zero address"
+        );
 
         _beforeTokenTransfer(address(0), account, amount);
+        _burnDecayed(account);
 
         _totalSupply = _totalSupply.add(amount);
         _balances[account] = _balances[account].add(amount);
@@ -305,13 +299,16 @@ contract ERC20 is Context, IERC20 {
      * - `account` must have at least `amount` tokens.
      */
     function _burn(address account, uint256 amount) internal virtual {
-        require(account != address(0), "ERC20: burn from the zero address");
+        require(
+            account != address(0),
+            "ERC20Decayable: burn from the zero address"
+        );
 
         _beforeTokenTransfer(account, address(0), amount);
 
-        _balances[account] = _balances[account].sub(
+        _balances[account] = _balanceOf(account).sub(
             amount,
-            "ERC20: burn amount exceeds balance"
+            "ERC20Decayable: burn amount exceeds balance"
         );
         _totalSupply = _totalSupply.sub(amount);
         emit Transfer(account, address(0), amount);
@@ -335,8 +332,14 @@ contract ERC20 is Context, IERC20 {
         address spender,
         uint256 amount
     ) internal virtual {
-        require(owner != address(0), "ERC20: approve from the zero address");
-        require(spender != address(0), "ERC20: approve to the zero address");
+        require(
+            owner != address(0),
+            "ERC20Decayable: approve from the zero address"
+        );
+        require(
+            spender != address(0),
+            "ERC20Decayable: approve to the zero address"
+        );
 
         _allowances[owner][spender] = amount;
         emit Approval(owner, spender, amount);
@@ -372,4 +375,77 @@ contract ERC20 is Context, IERC20 {
         address to,
         uint256 amount
     ) internal virtual {}
+
+    /**
+     * @dev _balanceOf implements IERC20.
+     * @param account is the target account.
+     */
+    function _balanceOf(address account) internal view returns (uint256) {
+        return _balances[account];
+    }
+
+    /**
+     * @dev balanceOf implements IERC20. It is like _balanceOf except it subtracts decayed amount.
+     * @param account is the target account.
+     */
+    function balanceOf(address account) public view override returns (uint256) {
+        return _balances[account].sub(decayedBalanceOf(account));
+    }
+
+    /// @dev _burnDecayed burns decayed DIL and reset decay state.
+    /// @param account is the target account to alter.
+    function _burnDecayed(address account) internal {
+        _burn(account, decayedBalanceOf(account));
+        decayStates[account].rate = 0;
+        decayStates[account].startTime = 0;
+        decayStates[account].endTime = 0;
+    }
+
+    /**
+     * @dev decayedBalanceOf returns the amount that has decayed.
+     * @param account is the target account.
+     */
+    function decayedBalanceOf(address account) public view returns (uint256) {
+        DecayState memory ds = decayStates[account];
+
+        if (ds.rate == 0) {
+            return 0;
+        }
+
+        // If decay period has ended, return total decayed amount;
+        if (ds.endTime < block.timestamp) {
+            return ds.endTime.sub(ds.startTime).mul(ds.rate);
+        }
+
+        return block.timestamp.sub(ds.startTime).mul(ds.rate);
+    }
+
+    /**
+     * @dev getDecayState returns the decay state of an account.
+     * @param account is the target account.
+     */
+    function getDecayState(address account)
+        public
+        view
+        returns (
+            uint256 rate,
+            uint256 startTime,
+            uint256 endTime
+        )
+    {
+        DecayState memory ds = decayStates[account];
+        rate = ds.rate;
+        startTime = ds.startTime;
+        endTime = ds.endTime;
+    }
+
+    /// @dev _setDecayHaltFee sets the decay halt fee (in smallest LTN)
+    function _setDecayHaltFee(uint256 val) internal {
+        decayHaltFee = val;
+    }
+
+    /// @dev _setDecayDuration sets the decay duraion for unshieled DIL.
+    function _setDecayDuration(uint256 val) internal {
+        decayDur = val;
+    }
 }

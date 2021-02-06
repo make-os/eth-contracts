@@ -22,9 +22,7 @@ struct Period {
 
 /// @author The MakeOS Team
 /// @title The contract that provides the Latinum dutch auction functionality.
-contract Auction is Latinum {
-    Dilithium dil;
-
+contract Auction is Latinum(address(0)) {
     // periods contain the auction periods
     Period[] public periods;
 

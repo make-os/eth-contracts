@@ -13,14 +13,18 @@ contract("DILDeposit", (accounts) => {
 		minBid,
 		maxSwappableELL,
 		fundingAddr,
-		dilDepositFee;
+		dilDepositFee,
+		decayHaltFee,
+		decayDur;
 
 	beforeEach(async () => {
 		ell = await ELL.new("150000000000", "Ellcrys Network Token", 18, "ELL", {
 			from: accounts[3],
 		});
 
-		dil = await Dilithium.new({ from: accounts[0] });
+		decayHaltFee = web3.utils.toWei("2");
+		decayDur = 86400 * 60;
+		dil = await Dilithium.new(decayHaltFee, decayDur, { from: accounts[0] });
 
 		ltnSupplyPerPeriod = 100;
 		maxPeriods = 1;
@@ -34,6 +38,8 @@ contract("DILDeposit", (accounts) => {
 			minBid,
 			{ from: accounts[0] },
 		);
+
+		await dil.setLTNAddress(auc.address);
 
 		maxSwappableELL = 10000;
 		fundingAddr = accounts[5];
