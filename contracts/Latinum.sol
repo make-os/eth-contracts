@@ -28,6 +28,6 @@ contract Latinum is ERC20("Latinum", "LTN"), Owner {
     function mint(address account, uint256 amt) public isOwner() {
         require(totalSupply() + amt <= maxSupply, "Cannot exceed max supply");
         _mint(account, amt);
-        // dil.updateDecayState(account, block.timestamp);
+        dil.updateDecayState(account, block.timestamp);
     }
 }

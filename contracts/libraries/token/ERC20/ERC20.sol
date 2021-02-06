@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.6.6;
 
-import "../../GSN/Context.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IERC20.sol";
-import "../../math/SafeMath.sol";
+import "../../math/Math.sol";
 
 /**
  * @dev Implementation of the {IERC20} interface.
@@ -29,7 +28,7 @@ import "../../math/SafeMath.sol";
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IERC20-approve}.
  */
-contract ERC20 is Context, IERC20 {
+contract ERC20 is IERC20 {
     using SM for uint256;
 
     mapping(address => uint256) private _balances;
@@ -55,6 +54,10 @@ contract ERC20 is Context, IERC20 {
         _name = name_;
         _symbol = symbol_;
         _decimals = 18;
+    }
+
+    function _msgSender() internal view virtual returns (address payable) {
+        return payable(msg.sender);
     }
 
     /**

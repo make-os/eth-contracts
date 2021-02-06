@@ -9,7 +9,7 @@ import "./libraries/ell/EIP20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./libraries/uniswap/UniswapV2Router02.sol";
-import "./libraries/math/SafeMath.sol";
+import "./libraries/math/Math.sol";
 
 struct LiquidityTicket {
     uint256 amount;

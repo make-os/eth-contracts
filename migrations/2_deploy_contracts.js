@@ -3,7 +3,7 @@ const Dilithium = artifacts.require("Dilithium");
 const Auction = artifacts.require("Auction");
 
 module.exports = async function (deployer, network, accounts) {
-	const sender = "0xee3C22B93C53f9F97D9b94e1D016818aaC5335AC";
+	const sender = accounts[0]; // change this;
 
 	// Deploy the Dilithium contract.
 	const DecayHaltFee = web3.utils.toWei("2");

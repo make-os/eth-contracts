@@ -3,7 +3,6 @@ pragma solidity ^0.6.6;
 
 import "./Latinum.sol";
 import "./Dilithium.sol";
-import "./libraries/math/SafeMath.sol";
 import "./libraries/math/Math.sol";
 
 /// Claim represents a bidder's claim to a bidding
@@ -188,7 +187,7 @@ contract Auction is Latinum(address(0)) {
             delete claims[msg.sender][i];
 
             // Get base point for the claim
-            uint256 bps = Math.getBPSOfAInB(claim_.bid, period.totalBids);
+            uint256 bps = SM.getBPSOfAInB(claim_.bid, period.totalBids);
             uint256 ltnReward = (period.ltnSupply * bps) / 10000;
             _mint(msg.sender, ltnReward);
 

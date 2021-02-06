@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.6.6;
 
-import "../../GSN/Context.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IERC20.sol";
-import "../../math/SafeMath.sol";
+import "../../math/Math.sol";
 
 struct DecayState {
     uint256 rate;
@@ -15,7 +14,7 @@ struct DecayState {
  * @dev Implementation of the {IERC20} interface with
  * support for decaying balances.
  */
-contract ERC20Decayable is Context, IERC20 {
+contract ERC20Decayable is IERC20 {
     using SM for uint256;
 
     mapping(address => uint256) private _balances;
@@ -50,6 +49,10 @@ contract ERC20Decayable is Context, IERC20 {
         _name = name_;
         _symbol = symbol_;
         _decimals = 18;
+    }
+
+    function _msgSender() internal view virtual returns (address payable) {
+        return payable(msg.sender);
     }
 
     /**
