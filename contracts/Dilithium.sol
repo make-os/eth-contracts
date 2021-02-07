@@ -34,16 +34,10 @@ contract Dilithium is ERC20Decayable("Dilithium", "DIL"), Owner {
     function mint(address account, uint256 amount) public isOwner() {
         _mint(account, amount);
     }
-
-    /// @dev offBurning disables burning function.
-    function offBurning() public isOwner() {
-        disableBurn = true;
-    }
-
+    
     /// @dev burn destroys the given amount of the sender's balance .
     /// @param amount is the number of DIL to destroy.
     function burn(uint256 amount) public {
-        require(!disableBurn, "Burn disabled");
         _burnDecayed(msg.sender);
         _burn(msg.sender, amount);
         _updateDecayStateOnly(msg.sender, block.timestamp);
