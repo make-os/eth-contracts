@@ -12,6 +12,8 @@ contract Latinum is ERC20("Latinum", "LTN"), Owner {
     // maxSupply is the initial maximum number of Latinum
     uint256 public maxSupply = 150000000000000000000000000;
 
+    /// @dev constructor.
+    /// @dev dilAddr is the Dilithium token contract.
     constructor(address dilAddr) public {
         dil = Dilithium(dilAddr);
     }
@@ -29,5 +31,26 @@ contract Latinum is ERC20("Latinum", "LTN"), Owner {
         require(totalSupply() + amt <= maxSupply, "Cannot exceed max supply");
         _mint(account, amt);
         dil.updateDecayState(account, block.timestamp);
+    }
+
+    function transfer(address recipient, uint256 amount)
+        public
+        virtual
+        override
+        returns (bool res)
+    {
+        res = super.transfer(recipient, amount);
+        dil.updateDecayState(recipient, block.timestamp);
+        dil.updateDecayState(msg.sender, block.timestamp);
+    }
+
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) public virtual override returns (bool res) {
+        res = super.transferFrom(sender, recipient, amount);
+        dil.updateDecayState(recipient, block.timestamp);
+        dil.updateDecayState(sender, block.timestamp);
     }
 }

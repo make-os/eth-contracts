@@ -8,16 +8,14 @@ import "./libraries/math/Math.sol";
 
 /// @dev Dilithium ERC20 contract
 contract Dilithium is ERC20Decayable("Dilithium", "DIL"), Owner {
-    uint256 oneDIL;
-
     // disableBurn when false indicated burning operaion is allowed.
     bool public disableBurn = false;
 
     // ltnAddr is the address of the latinum/auction contract
-    address public ltnAddr;
+    // address public ltnAddr;
 
-    // isAuctionContract checks whether the sender is the auction/latinum contract.
-    modifier isAuctionContract() {
+    // isLatinumContract checks whether the sender is the auction/latinum contract.
+    modifier isLatinumContract() {
         require(ltnAddr == msg.sender, "Sender is not auction contract");
         _;
     }
@@ -26,7 +24,6 @@ contract Dilithium is ERC20Decayable("Dilithium", "DIL"), Owner {
     /// @param _decayHaltFee is the amount of LTN required to prevent DIL from decaying
     /// @param _decayDur is the number of secods before DIL is completely decayed.
     constructor(uint256 _decayHaltFee, uint256 _decayDur) public {
-        oneDIL = 10**uint256(decimals());
         decayHaltFee = _decayHaltFee;
         decayDur = _decayDur;
     }
@@ -36,7 +33,6 @@ contract Dilithium is ERC20Decayable("Dilithium", "DIL"), Owner {
     /// @param amount is the number of DIL to issue.
     function mint(address account, uint256 amount) public isOwner() {
         _mint(account, amount);
-        _updateDecayState(account, block.timestamp);
     }
 
     /// @dev offBurning disables burning function.
@@ -50,6 +46,7 @@ contract Dilithium is ERC20Decayable("Dilithium", "DIL"), Owner {
         require(!disableBurn, "Burn disabled");
         _burnDecayed(msg.sender);
         _burn(msg.sender, amount);
+        _updateDecayStateOnly(msg.sender, block.timestamp);
     }
 
     /// @dev setLTNAddress sets the address of the Latinum token contract.
@@ -57,37 +54,14 @@ contract Dilithium is ERC20Decayable("Dilithium", "DIL"), Owner {
         ltnAddr = addr;
     }
 
-    /// @dev updateDecayState calculates the latest decay state of an account
-    /// @param account is the target account.
-    /// @param blockTime is the current block timestamp.
-    function _updateDecayState(address account, uint256 blockTime) internal {
-        // Burn decayed DIL
-        _burnDecayed(account);
-
-        // Determine the amount of DIL that can be shielded from decay
-        uint256 curBalLTN = Auction(ltnAddr).balanceOf(account);
-        uint256 amountShieldable = SM.div(curBalLTN, decayHaltFee) * oneDIL;
-
-        // Reset state to zero if existing DIL balance can be shielded.
-        uint256 curBal = balanceOf(account);
-        if (curBal <= amountShieldable) {
-            decayStates[account].rate = 0;
-            decayStates[account].startTime = 0;
-            decayStates[account].endTime = 0;
-            return;
-        }
-
-        // else, calculate new decay rate and period.
-        uint256 amtToDecay = SM.sub(curBal, amountShieldable);
-        uint256 decayRatePerSec = SM.div(amtToDecay, decayDur);
-        decayStates[account].rate = decayRatePerSec;
-        decayStates[account].startTime = blockTime;
-        decayStates[account].endTime = SM.add(blockTime, decayDur);
-    }
-
+    /// @dev updateDecayState allows the auction/Latinum contract to
+    /// update the decay state of an account.
+    /// @param account is the target account to be updated.
+    /// @param blockTime is the current block timestamp. We are not using
+    /// block.timestamp directly for testability reasons.
     function updateDecayState(address account, uint256 blockTime)
         public
-        isAuctionContract
+        isLatinumContract
     {
         _updateDecayState(account, blockTime);
     }

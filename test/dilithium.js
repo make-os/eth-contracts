@@ -244,6 +244,12 @@ contract("Dilithium", function (accts) {
 			expect(curDilBal.gte(web3.utils.toWei("0.5"))).to.be.true;
 			let toDilBal = await dil.balanceOf(accts[2]);
 			expect(toDilBal.toString()).to.equal(amtToSend.toString());
+
+			// Decay rate must be updated for each accounts
+			let dsAcct1 = await dil.getDecayState(accts[1]);
+			let dsAcct2 = await dil.getDecayState(accts[2]);
+			expect(dsAcct1.rate.toString()).to.equal("0");
+			expect(dsAcct2.rate.gt(0)).to.be.true;
 		});
 	});
 
@@ -286,6 +292,12 @@ contract("Dilithium", function (accts) {
 			expect(curDilBal.gte(web3.utils.toWei("0.5"))).to.be.true;
 			let toDilBal = await dil.balanceOf(accts[2]);
 			expect(toDilBal.toString()).to.equal(amtToSend.toString());
+
+			// Decay rate must be updated for each accounts
+			let dsAcct1 = await dil.getDecayState(accts[1]);
+			let dsAcct2 = await dil.getDecayState(accts[2]);
+			expect(dsAcct1.rate.toString()).to.equal("0");
+			expect(dsAcct2.rate.gt(0)).to.be.true;
 		});
 	});
 });

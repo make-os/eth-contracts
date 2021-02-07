@@ -32,9 +32,12 @@ contract ERC20Decayable is IERC20 {
     // decayDur is the number of seconds it takes for DIL to be fully decayed.
     uint256 public decayDur;
 
+    address public ltnAddr;
+
     string private _name;
     string private _symbol;
     uint8 private _decimals;
+    uint256 _oneDIL;
 
     /**
      * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
@@ -49,6 +52,7 @@ contract ERC20Decayable is IERC20 {
         _name = name_;
         _symbol = symbol_;
         _decimals = 18;
+        _oneDIL = 10**uint256(decimals());
     }
 
     function _msgSender() internal view virtual returns (address payable) {
@@ -259,11 +263,15 @@ contract ERC20Decayable is IERC20 {
         _burnDecayed(sender);
         _burnDecayed(recipient);
 
-        _balances[sender] = balanceOf(sender).sub(
+        _balances[sender] = _balanceOf(sender).sub(
             amount,
             "ERC20Decayable: transfer amount exceeds balance"
         );
         _balances[recipient] = _balances[recipient].add(amount);
+
+        _updateDecayStateOnly(sender, block.timestamp);
+        _updateDecayStateOnly(recipient, block.timestamp);
+
         emit Transfer(sender, recipient, amount);
     }
 
@@ -287,6 +295,9 @@ contract ERC20Decayable is IERC20 {
 
         _totalSupply = _totalSupply.add(amount);
         _balances[account] = _balances[account].add(amount);
+
+        _updateDecayStateOnly(account, block.timestamp);
+
         emit Transfer(address(0), account, amount);
     }
 
@@ -440,6 +451,41 @@ contract ERC20Decayable is IERC20 {
         rate = ds.rate;
         startTime = ds.startTime;
         endTime = ds.endTime;
+    }
+
+    /// @dev _updateDecayStateOnly only calculates the latest decay state of an account
+    /// @param account is the target account.
+    /// @param blockTime is the current block timestamp.
+    function _updateDecayStateOnly(address account, uint256 blockTime)
+        internal
+    {
+        // Determine the amount of DIL that can be shielded from decay
+        uint256 curBalLTN = IERC20(ltnAddr).balanceOf(account);
+        uint256 amountShieldable = SM.div(curBalLTN, decayHaltFee) * _oneDIL;
+
+        // Reset state to zero if existing DIL balance can be shielded.
+        uint256 curBal = balanceOf(account);
+        if (curBal <= amountShieldable) {
+            decayStates[account].rate = 0;
+            decayStates[account].startTime = 0;
+            decayStates[account].endTime = 0;
+            return;
+        }
+
+        // else, calculate new decay rate and period.
+        uint256 amtToDecay = SM.sub(curBal, amountShieldable);
+        uint256 decayRatePerSec = SM.div(amtToDecay, decayDur);
+        decayStates[account].rate = decayRatePerSec;
+        decayStates[account].startTime = blockTime;
+        decayStates[account].endTime = SM.add(blockTime, decayDur);
+    }
+
+    /// @dev updateDecayState calculates the latest decay state of an account
+    /// @param account is the target account.
+    /// @param blockTime is the current block timestamp.
+    function _updateDecayState(address account, uint256 blockTime) internal {
+        _burnDecayed(account);
+        _updateDecayStateOnly(account, blockTime);
     }
 
     /// @dev _setDecayHaltFee sets the decay halt fee (in smallest LTN)
