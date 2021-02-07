@@ -308,6 +308,69 @@ contract("Auction", (accounts) => {
 				await truffleAssert.reverts(bid(accounts[1], 100), "Too many unprocessed claims");
 			});
 		});
+
+		describe("when there are more than 7 periods", () => {
+			it("should revert with 'Bid amount too small' if minBid is < (50 * minBid)", async () => {
+				maxPeriods = 10;
+				auc = await Auction.new(
+					dil.address,
+					minDILSupply,
+					maxPeriods,
+					ltnSupplyPerPeriod,
+					minBid,
+				);
+
+				await unlock(accounts[1], 70000);
+				await bid(accounts[1], 100);
+				await utils.advanceTime(86500);
+				await bid(accounts[1], 100);
+				await utils.advanceTime(86500);
+				await bid(accounts[1], 100);
+				await utils.advanceTime(86500);
+				await bid(accounts[1], 100);
+				await utils.advanceTime(86500);
+				await bid(accounts[1], 100);
+				await auc.claim({ from: accounts[1] });
+				await utils.advanceTime(86500);
+				await bid(accounts[1], 100);
+				await utils.advanceTime(86500);
+				await bid(accounts[1], 100);
+				await utils.advanceTime(86500);
+				await truffleAssert.reverts(
+					bid(accounts[1], minBid * 50 - 1),
+					"Bid amount too small",
+				);
+			});
+
+			it("should accept bid if minBid is >= (50 * minBid)", async () => {
+				maxPeriods = 10;
+				auc = await Auction.new(
+					dil.address,
+					minDILSupply,
+					maxPeriods,
+					ltnSupplyPerPeriod,
+					minBid,
+				);
+
+				await unlock(accounts[1], 70000);
+				await bid(accounts[1], 100);
+				await utils.advanceTime(86500);
+				await bid(accounts[1], 100);
+				await utils.advanceTime(86500);
+				await bid(accounts[1], 100);
+				await utils.advanceTime(86500);
+				await bid(accounts[1], 100);
+				await utils.advanceTime(86500);
+				await bid(accounts[1], 100);
+				await auc.claim({ from: accounts[1] });
+				await utils.advanceTime(86500);
+				await bid(accounts[1], 100);
+				await utils.advanceTime(86500);
+				await bid(accounts[1], 100);
+				await utils.advanceTime(86500);
+				await bid(accounts[1], minBid * 50);
+			});
+		});
 	});
 
 	describe(".getLTNPriceInPeriod", async function () {

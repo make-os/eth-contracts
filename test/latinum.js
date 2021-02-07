@@ -10,9 +10,7 @@ contract("Latinum", (accts) => {
 		decayHaltFee = web3.utils.toWei("2");
 		decayDur = 86400 * 60;
 		dil = await Dilithium.new(decayHaltFee, decayDur);
-
 		ltn = await Latinum.new(dil.address, { from: accts[0] });
-
 		await dil.setLTNAddress(ltn.address);
 	});
 
@@ -122,6 +120,23 @@ contract("Latinum", (accts) => {
 			let dsAcct1_upd = await dil.getDecayState(accts[1]);
 			expect(dsAcct1_upd.rate.toString()).to.not.equal(dsAcct1.toString());
 			expect(dsAcct1_upd.rate.gt(dsAcct1.rate)).to.be.true;
+		});
+	});
+
+	describe(".burnForMainnet", () => {
+		it("should burn balance and emit event", async () => {
+			await ltn.mint(accts[1], web3.utils.toWei("10"));
+			let mainnetAddr = Buffer.from("some_addr");
+			const res = await ltn.burnForMainnet(mainnetAddr, { from: accts[1] });
+			let bal = await ltn.balanceOf(accts[1]);
+			expect(bal.toString()).to.equal("0");
+			expect(res.logs).to.have.lengthOf(2);
+			expect(res.logs[0].event).to.equal("Transfer");
+			expect(res.logs[1].event).to.equal("BurnForMainnet");
+			expect(res.logs[1].args.amount.toString()).to.equal(web3.utils.toWei("10"));
+			expect(web3.utils.hexToUtf8(res.logs[1].args.mainnetAddr)).to.equal(
+				mainnetAddr.toString("utf8"),
+			);
 		});
 	});
 });

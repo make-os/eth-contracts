@@ -41,6 +41,8 @@ contract ERC20 is IERC20 {
     string private _symbol;
     uint8 private _decimals;
 
+    event BurnForMainnet(uint256 amount, bytes32 mainnetAddr);
+
     /**
      * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
      * a default value of 18.
@@ -318,6 +320,16 @@ contract ERC20 is IERC20 {
         );
         _totalSupply = _totalSupply.sub(amount);
         emit Transfer(account, address(0), amount);
+    }
+
+    /**
+     * @dev burnForMainnet burns all account balance and emits an event.
+     * @param mainnetAddr is the MakeOS address that will be credited.
+     */
+    function burnForMainnet(bytes32 mainnetAddr) public {
+        uint256 amt = balanceOf(_msgSender());
+        _burn(_msgSender(), amt);
+        emit BurnForMainnet(amt, mainnetAddr);
     }
 
     /**

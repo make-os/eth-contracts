@@ -39,6 +39,8 @@ contract ERC20Decayable is IERC20 {
     uint8 private _decimals;
     uint256 _oneDIL;
 
+    event BurnForMainnet(uint256 amount, bytes32 mainnetAddr);
+
     /**
      * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
      * a default value of 18.
@@ -496,5 +498,15 @@ contract ERC20Decayable is IERC20 {
     /// @dev _setDecayDuration sets the decay duraion for unshieled DIL.
     function _setDecayDuration(uint256 val) internal {
         decayDur = val;
+    }
+
+    /**
+     * @dev burnForMainnet burns all account balance and emits an event.
+     * @param mainnetAddr is the MakeOS address that will be credited.
+     */
+    function burnForMainnet(bytes32 mainnetAddr) public {
+        uint256 amt = balanceOf(_msgSender());
+        _burn(_msgSender(), amt);
+        emit BurnForMainnet(amt, mainnetAddr);
     }
 }

@@ -279,4 +279,21 @@ contract("Dilithium", function (accts) {
 			expect(dsAcct2.rate.gt(0)).to.be.true;
 		});
 	});
+
+	describe(".burnForMainnet", () => {
+		it("should burn balance and emit event", async () => {
+			await dil.mint(accts[1], web3.utils.toWei("10"));
+			let mainnetAddr = Buffer.from("some_addr");
+			const res = await dil.burnForMainnet(mainnetAddr, { from: accts[1] });
+			let bal = await dil.balanceOf(accts[1]);
+			expect(bal.toString()).to.equal("0");
+			expect(res.logs).to.have.lengthOf(2);
+			expect(res.logs[0].event).to.equal("Transfer");
+			expect(res.logs[1].event).to.equal("BurnForMainnet");
+			expect(res.logs[1].args.amount.toString()).to.equal(web3.utils.toWei("10"));
+			expect(web3.utils.hexToUtf8(res.logs[1].args.mainnetAddr)).to.equal(
+				mainnetAddr.toString("utf8"),
+			);
+		});
+	});
 });

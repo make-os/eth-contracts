@@ -55,10 +55,10 @@ contract Auction is Latinum(address(0)) {
 
     /// @dev isBidAmountUnlocked is a modifier to check if a bidder has unlocked
     /// the bid amount
-    modifier isBidAmountUnlocked(address bidder, uint256 bidAmount) {
+    modifier isBidAmountUnlocked(address bidder, uint256 bidAmt) {
         // Ensure the bidder has unlocked the bid amount
         uint256 allowance = dil.allowance(bidder, address(this));
-        require(allowance >= bidAmount, "Amount not unlocked");
+        require(allowance >= bidAmt, "Amount not unlocked");
         _;
     }
 
@@ -130,31 +130,36 @@ contract Auction is Latinum(address(0)) {
     }
 
     /// @notice bid lets an account place a bid.
-    /// @param bidAmount is the amount of the DIL to be placed as bid. This amount
+    /// @param bidAmt is the amount of the DIL to be placed as bid. This amount
     /// must have been unlocked in the DIL contract.
-    function bid(uint256 bidAmount)
+    function bid(uint256 bidAmt)
         public
         isAuctionClosed()
-        isBidAmountUnlocked(msg.sender, bidAmount)
+        isBidAmountUnlocked(msg.sender, bidAmt)
         returns (bool)
     {
-        require(bidAmount >= minBid, "Bid amount too small");
-        require(getNumOfClaims() + 1 <= 5, "Too many unprocessed claims");
-
-        // Get the current period
         uint256 index = makePeriod();
 
+        if (
+            (index <= 6 && bidAmt < minBid) ||
+            (index > 6 && bidAmt < minBid * 50)
+        ) {
+            revert("Bid amount too small");
+        }
+
+        require(getNumOfClaims() + 1 <= 5, "Too many unprocessed claims");
+
         // Burn the the bid amount
-        dil.transferFrom(msg.sender, address(this), bidAmount);
-        dil.burn(bidAmount);
+        dil.transferFrom(msg.sender, address(this), bidAmt);
+        dil.burn(bidAmt);
 
         // Increase the period's bid count
-        updatePeriodTotalBids(index, bidAmount);
+        updatePeriodTotalBids(index, bidAmt);
 
         // Add a new claim
-        claims[msg.sender].push(Claim(index, bidAmount));
+        claims[msg.sender].push(Claim(index, bidAmt));
 
-        emit NewBid(msg.sender, bidAmount, index);
+        emit NewBid(msg.sender, bidAmt, index);
 
         return true;
     }
