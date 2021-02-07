@@ -239,4 +239,14 @@ contract Main is DepositDIL {
 
         auc.mint(msg.sender, 1 wei * reward);
     }
+
+    /// @dev setDecayHaltFee sets the decay halt fee.
+    function setDecayHaltFee(uint256 val) public isOwner() {
+        dil.setDecayHaltFee(val);
+    }
+
+    /// @dev setDecayDuration sets the number of seconds it takes for DIL to decay.
+    function setDecayDuration(uint256 val) public isOwner() {
+        dil.setDecayDuration(val);
+    }
 }

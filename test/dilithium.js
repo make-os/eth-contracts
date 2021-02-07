@@ -51,15 +51,6 @@ contract("Dilithium", function (accts) {
 		});
 	});
 
-	describe(".offBurning", () => {
-		it("should revert if sender is not owner", async () => {
-			await truffleAssert.reverts(
-				dil.offBurning({ from: accts[1] }),
-				"Sender is not owner",
-			);
-		});
-	});
-
 	describe(".burn", async function () {
 		it("should burn balance successfully", async () => {
 			const res = await dil.mint(accts[1], 100);
@@ -69,18 +60,6 @@ contract("Dilithium", function (accts) {
 			await dil.burn(100, { from: accts[1] });
 			bal = (await dil.balanceOf(accts[1])).toNumber();
 			expect(bal).to.equal(0);
-		});
-
-		it("should revert if burning is disabled", async () => {
-			const res = await dil.mint(accts[1], 100);
-			let bal = (await dil.balanceOf(accts[1])).toNumber();
-			expect(bal).to.equal(100);
-
-			await dil.offBurning();
-			await truffleAssert.reverts(dil.burn(100, { from: accts[1] }), "Burn disabled");
-
-			bal = (await dil.balanceOf(accts[1])).toNumber();
-			expect(bal).to.equal(100);
 		});
 	});
 
