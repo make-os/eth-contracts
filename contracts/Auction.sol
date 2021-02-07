@@ -147,6 +147,13 @@ contract Auction is Latinum(address(0)) {
             revert("Bid amount too small");
         }
 
+        if (
+            (index <= 6 && bidAmt > minBid * 10) ||
+            (index > 6 && bidAmt > minBid * 1000)
+        ) {
+            revert("Bid amount too high");
+        }
+
         require(getNumOfClaims() + 1 <= 5, "Too many unprocessed claims");
 
         // Burn the the bid amount

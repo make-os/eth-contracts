@@ -205,6 +205,25 @@ contract("Auction", (accounts) => {
 			);
 		});
 
+		it("should revert with 'Bid amount too high' if bid amount is > minBid * 10", async () => {
+			maxPeriods = 1;
+			minBid = 1000;
+			auc = await Auction.new(
+				dil.address,
+				minDILSupply,
+				maxPeriods,
+				ltnSupplyPerPeriod,
+				minBid,
+			);
+
+			await unlock(accounts[1], 100000000);
+
+			await truffleAssert.reverts(
+				auc.bid(minBid * 10 + 1, { from: accounts[1] }),
+				"Bid amount too high",
+			);
+		});
+
 		describe("when bidder unlocked the bid amount", () => {
 			beforeEach(async () => {
 				maxPeriods = 1;
@@ -310,7 +329,7 @@ contract("Auction", (accounts) => {
 		});
 
 		describe("when there are more than 7 periods", () => {
-			it("should revert with 'Bid amount too small' if minBid is < (50 * minBid)", async () => {
+			beforeEach(async () => {
 				maxPeriods = 10;
 				auc = await Auction.new(
 					dil.address,
@@ -319,8 +338,7 @@ contract("Auction", (accounts) => {
 					ltnSupplyPerPeriod,
 					minBid,
 				);
-
-				await unlock(accounts[1], 70000);
+				await unlock(accounts[1], 100000000);
 				await bid(accounts[1], 100);
 				await utils.advanceTime(86500);
 				await bid(accounts[1], 100);
@@ -336,6 +354,9 @@ contract("Auction", (accounts) => {
 				await utils.advanceTime(86500);
 				await bid(accounts[1], 100);
 				await utils.advanceTime(86500);
+			});
+
+			it("should revert with 'Bid amount too small' if minBid is < (50 * minBid)", async () => {
 				await truffleAssert.reverts(
 					bid(accounts[1], minBid * 50 - 1),
 					"Bid amount too small",
@@ -343,32 +364,19 @@ contract("Auction", (accounts) => {
 			});
 
 			it("should accept bid if minBid is >= (50 * minBid)", async () => {
-				maxPeriods = 10;
-				auc = await Auction.new(
-					dil.address,
-					minDILSupply,
-					maxPeriods,
-					ltnSupplyPerPeriod,
-					minBid,
-				);
-
-				await unlock(accounts[1], 70000);
-				await bid(accounts[1], 100);
-				await utils.advanceTime(86500);
-				await bid(accounts[1], 100);
-				await utils.advanceTime(86500);
-				await bid(accounts[1], 100);
-				await utils.advanceTime(86500);
-				await bid(accounts[1], 100);
-				await utils.advanceTime(86500);
-				await bid(accounts[1], 100);
-				await auc.claim({ from: accounts[1] });
-				await utils.advanceTime(86500);
-				await bid(accounts[1], 100);
-				await utils.advanceTime(86500);
-				await bid(accounts[1], 100);
 				await utils.advanceTime(86500);
 				await bid(accounts[1], minBid * 50);
+			});
+
+			it("should revert with 'Bid amount too high' if minBid is > (1000 * minBid)", async () => {
+				await truffleAssert.reverts(
+					bid(accounts[1], minBid * 1000 + 1),
+					"Bid amount too high",
+				);
+			});
+
+			it("should not revert if minBid is <= (1000 * minBid)", async () => {
+				await bid(accounts[1], minBid * 1000);
 			});
 		});
 	});
@@ -380,6 +388,7 @@ contract("Auction", (accounts) => {
 		});
 
 		it("should calculate LTN price", async () => {
+			minBid = 100000;
 			ltnSupplyPerPeriod = 300000;
 			auc = await Auction.new(
 				dil.address,
@@ -397,6 +406,7 @@ contract("Auction", (accounts) => {
 		});
 
 		it("should calculate LTN price (2)", async () => {
+			minBid = 1000000;
 			ltnSupplyPerPeriod = 300000;
 			auc = await Auction.new(
 				dil.address,
