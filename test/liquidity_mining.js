@@ -21,7 +21,7 @@ describe("LiquidityMining", function () {
 			gasLimit: 999999999,
 		},
 	});
-	let accounts;
+	let accts;
 	let factory, dil, auc, main, weth, router;
 	let ltnSupplyPerPeriod,
 		maxPeriods,
@@ -29,7 +29,6 @@ describe("LiquidityMining", function () {
 		minDILSupply,
 		maxSwappableELL,
 		fundingAddr,
-		dilDepositFee,
 		maxInitialLiquidityFund,
 		decayHaltFee,
 		decayDur;
@@ -38,24 +37,24 @@ describe("LiquidityMining", function () {
 	let lps;
 
 	beforeEach(async function () {
-		accounts = provider.getWallets();
-		lp = accounts[1];
+		accts = provider.getWallets();
+		lp = accts[1];
 		lps = provider.getSigner(lp.address);
 
-		factory = await Waffle.deployContract(accounts[0], UniswapV2FactoryBytecode, [
-			accounts[0].address,
+		factory = await Waffle.deployContract(accts[0], UniswapV2FactoryBytecode, [
+			accts[0].address,
 		]);
 
-		weth = await Waffle.deployContract(accounts[0], WETHBytecode, []);
+		weth = await Waffle.deployContract(accts[0], WETHBytecode, []);
 
-		router = await Waffle.deployContract(accounts[0], UniswapV2Router02Bytecode, [
+		router = await Waffle.deployContract(accts[0], UniswapV2Router02Bytecode, [
 			factory.address,
 			weth.address,
 		]);
 
 		decayHaltFee = web3.utils.toWei("2");
 		decayDur = 86400 * 60;
-		dil = await Waffle.deployContract(accounts[0], DilithiumBytecode, [
+		dil = await Waffle.deployContract(accts[0], DilithiumBytecode, [
 			decayHaltFee,
 			decayDur,
 		]);
@@ -64,23 +63,23 @@ describe("LiquidityMining", function () {
 		maxPeriods = 1;
 		minBid = 100;
 		minDILSupply = 100;
-		auc = await Waffle.deployContract(accounts[0], AuctionBytecode, [
+		fundingAddr = accts[5].address;
+		auc = await Waffle.deployContract(accts[0], AuctionBytecode, [
 			dil.address,
 			minDILSupply,
 			maxPeriods,
 			ltnSupplyPerPeriod,
 			minBid,
+			fundingAddr,
 		]);
 
 		await dil.setLTNAddress(auc.address);
 
-		main = await Waffle.deployContract(accounts[0], MainBytecode, [
-			"100000000000000000",
+		main = await Waffle.deployContract(accts[0], MainBytecode, [
 			10000,
 			"0x0000000000000000000000000000000000000000",
 			dil.address,
 			auc.address,
-			accounts[5].address,
 			router.address,
 		]);
 	});
@@ -195,7 +194,7 @@ describe("LiquidityMining", function () {
 			let ethAmt = web3.utils.toWei("0.1");
 			r = await addLiquidityEth(auc.address, ltnAmt, ltnAmt, ethAmt, ethAmt, lp.address);
 
-			let pair = await getPairContract(auc.address, weth.address, accounts[0]);
+			let pair = await getPairContract(auc.address, weth.address, accts[0]);
 			let lpLiquidity = await pair.balanceOf(lp.address);
 			await pair.connect(lps).approve(main.address, lpLiquidity.sub("1"));
 
@@ -215,7 +214,7 @@ describe("LiquidityMining", function () {
 				// prettier-ignore
 				r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
 
-				let pair = await getPairContract(auc.address, weth.address, accounts[0]);
+				let pair = await getPairContract(auc.address, weth.address, accts[0]);
 				let lpLiquidity = await pair.balanceOf(lp.address);
 				await pair.connect(lps).approve(main.address, lpLiquidity);
 
@@ -243,7 +242,7 @@ describe("LiquidityMining", function () {
 				let ethAmt = web3.utils.toWei("0.1");
 				// prettier-ignore
 				r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
-				let pair = await getPairContract(auc.address, weth.address, accounts[0]);
+				let pair = await getPairContract(auc.address, weth.address, accts[0]);
 				let lpLiquidity = await pair.balanceOf(lp.address);
 				await pair.connect(lps).approve(main.address, lpLiquidity);
 				await main.connect(lps).lockLiquidity(lpLiquidity);
@@ -258,7 +257,7 @@ describe("LiquidityMining", function () {
 				ethAmt = web3.utils.toWei("0.1");
 				// prettier-ignore
 				r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
-				pair = await getPairContract(auc.address, weth.address, accounts[0]);
+				pair = await getPairContract(auc.address, weth.address, accts[0]);
 				let lpLiquidity2 = await pair.balanceOf(lp.address);
 				await pair.connect(lps).approve(main.address, lpLiquidity2);
 				await main.connect(lps).lockLiquidity(lpLiquidity2);
@@ -283,7 +282,7 @@ describe("LiquidityMining", function () {
 			let ethAmt = web3.utils.toWei("0.1");
 
 			r = await addLiquidityEth(auc.address, ltnAmt, ltnAmt, ethAmt, ethAmt, lp.address);
-			let pair = await getPairContract(auc.address, weth.address, accounts[0]);
+			let pair = await getPairContract(auc.address, weth.address, accts[0]);
 			let lpLiquidity = await pair.balanceOf(lp.address);
 			await pair.connect(lps).approve(main.address, lpLiquidity);
 			await main.connect(lps).lockLiquidity(lpLiquidity);
@@ -334,7 +333,7 @@ describe("LiquidityMining", function () {
 			// Add liquidity
 			// prettier-ignore
 			r = await addLiquidityEth(auc.address,ltnAmt,ltnAmt,ethAmt,ethAmt,lp.address);
-			let pair = await getPairContract(auc.address, weth.address, accounts[0]);
+			let pair = await getPairContract(auc.address, weth.address, accts[0]);
 			let lpLiquidity = await pair.balanceOf(lp.address);
 
 			// Approve and lock liquidity
@@ -376,7 +375,7 @@ describe("LiquidityMining", function () {
 					ethAmt,
 					lp.address,
 				);
-				let pair = await getPairContract(auc.address, weth.address, accounts[0]);
+				let pair = await getPairContract(auc.address, weth.address, accts[0]);
 				lpLiquidity = await pair.balanceOf(lp.address);
 
 				// Approve and lock liquidity
@@ -400,7 +399,7 @@ describe("LiquidityMining", function () {
 				expect(lt.lockedAt.toNumber() < now2).to.be.true;
 
 				// Make Main the owner of the auction contract.
-				await auc.setOwnerOnce(main.address);
+				await auc.setOwner(main.address);
 			});
 
 			it("should claim reward when sender has a liquidity ticket", async () => {

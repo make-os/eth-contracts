@@ -3,7 +3,6 @@ pragma solidity ^0.6.6;
 
 contract Owner {
     address public owner;
-    bool ownerSet;
 
     // TODO: remove in prod
     event LogString(string s);
@@ -20,15 +19,12 @@ contract Owner {
         _;
     }
 
-    /// @dev setOwnerOnce sets the final owner.
-    /// Reverts if called a second time.
+    /// @dev setOwner sets the owner
     ///
     /// Requires the caller to be the current owner.
     ///
     /// @param owner_ is the new owner.
-    function setOwnerOnce(address owner_) public isOwner() {
-        require(!ownerSet, "Owner already set");
+    function setOwner(address owner_) public isOwner() {
         owner = owner_;
-        ownerSet = true;
     }
 }

@@ -5,9 +5,10 @@ const Dilithium = artifacts.require("Dilithium");
 const ELL = artifacts.require("../contracts/libraries/ell/EIP20.sol");
 const UniswapV2Library = artifacts.require("./libraries/uniswap/UniswapV2Library.sol");
 const IUniswapV2Pair = artifacts.require("./libraries/uniswap/IUniswapV2Pair.sol");
+const { expect } = require("chai");
 const truffleAssert = require("truffle-assertions");
 
-contract("Main", (accounts) => {
+contract("Main", (accts) => {
 	let main, ell, dil, auc;
 	let ltnSupplyPerPeriod,
 		maxPeriods,
@@ -15,7 +16,6 @@ contract("Main", (accounts) => {
 		minDILSupply,
 		maxSwappableELL,
 		fundingAddr,
-		dilDepositFee,
 		maxInitialLiquidityFund,
 		decayHaltFee,
 		decayDur;
@@ -27,142 +27,103 @@ contract("Main", (accounts) => {
 		minDILSupply = 100;
 
 		ell = await ELL.new("150000000000", "Ellcrys Network Token", 18, "ELL", {
-			from: accounts[3],
+			from: accts[3],
 		});
 
 		decayHaltFee = web3.utils.toWei("2");
 		decayDur = 86400 * 60;
-		dil = await Dilithium.new(decayHaltFee, decayDur, { from: accounts[0] });
+		dil = await Dilithium.new(decayHaltFee, decayDur, { from: accts[0] });
 
+		fundingAddr = accts[5];
 		auc = await Auction.new(
 			dil.address,
 			minDILSupply,
 			maxPeriods,
 			ltnSupplyPerPeriod,
 			minBid,
-			{ from: accounts[0] },
+			fundingAddr,
+			{ from: accts[0] },
 		);
 
 		await dil.setLTNAddress(auc.address);
 
 		maxSwappableELL = 10000;
-		fundingAddr = accounts[5];
-		dilDepositFee = "100000000000000000";
 		let uniswapRouter = "0x0000000000000000000000000000000000000000";
 		main = await Main.new(
-			dilDepositFee,
 			maxSwappableELL,
 			ell.address,
 			dil.address,
 			auc.address,
-			fundingAddr,
 			uniswapRouter,
-			{ from: accounts[0] },
+			{ from: accts[0] },
 		);
-		await auc.setOwnerOnce(main.address, { from: accounts[0] });
-	});
-
-	describe(".setFundingAddress", async function () {
-		it("should revert if sender is not owner", async () => {
-			await truffleAssert.reverts(
-				main.setFundingAddress(accounts[6], { from: accounts[2] }),
-				"Sender is not owner",
-			);
-		});
-
-		it("should set new address if sender is owner", async () => {
-			expect(await main.fundingAddress()).to.equal(accounts[5]);
-			await main.setFundingAddress(accounts[6], { from: accounts[0] });
-			expect(await main.fundingAddress()).to.equal(accounts[6]);
-		});
+		await auc.setOwner(main.address, { from: accts[0] });
+		await dil.setOwner(main.address, { from: accts[0] });
 	});
 
 	describe(".setK", async function () {
 		it("should revert if sender is not owner", async () => {
 			await truffleAssert.reverts(
-				main.setK(accounts[6], { from: accounts[2] }),
+				main.setK(accts[6], { from: accts[2] }),
 				"Sender is not owner",
 			);
 		});
 
 		it("should set new address if sender is owner", async () => {
 			expect((await main.rewardK()).toString()).to.equal("0");
-			await main.setK("123", { from: accounts[0] });
+			await main.setK("123", { from: accts[0] });
 			expect((await main.rewardK()).toString()).to.equal("123");
 		});
 	});
 
-	describe(".withdraw", () => {
-		it("should revert with 'Not authorized' if sender is not the funding address", async () => {
-			expect(await main.fundingAddress()).to.equal(accounts[5]);
+	describe(".mintDIL", () => {
+		it("should revert with 'Sender is not owner' if sender is not owner", async () => {
 			await truffleAssert.reverts(
-				main.withdraw(1000, { from: accounts[0] }),
-				"Not authorized",
+				main.mintDIL(accts[1], "100", { from: accts[2] }),
+				"Sender is not owner",
 			);
 		});
 
-		it("should revert with 'Transfer failed' if contract balance is less than amount", async () => {
-			expect(await main.fundingAddress()).to.equal(accounts[5]);
-			await truffleAssert.reverts(
-				main.withdraw(1000, { from: accounts[5] }),
-				"Transfer failed",
-			);
-		});
-
-		it("should successfully transfer amount if contract balance is sufficient", async () => {
-			// send eth to contract
-			await main.sendTransaction({ from: accounts[0], value: web3.utils.toWei("10") });
-			expect(await web3.eth.getBalance(main.address)).to.equal(web3.utils.toWei("10"));
-
-			// get eth balance of funding address
-			let fundingAddrBal = await web3.eth.getBalance(accounts[5]);
-
-			// withdraw into funding address
-			await main.withdraw(web3.utils.toWei("5"), { from: accounts[5] });
-
-			// check that contract balance reduced
-			expect(await web3.eth.getBalance(main.address)).to.equal(web3.utils.toWei("5"));
-
-			// check that funding address increase
-			let curFundingAddrBal = await web3.eth.getBalance(accounts[5]);
-			expect(new web3.utils.BN(fundingAddrBal).lt(new web3.utils.BN(curFundingAddrBal)))
-				.to.be.true;
+		it("should mint DIL successfully", async () => {
+			await main.mintDIL(accts[1], "100");
+			let bal = await dil.balanceOf(accts[1]);
+			expect(bal.toNumber()).to.equal(100);
 		});
 	});
 
 	describe(".swapELL", async function () {
 		it("should revert with 'Sender is not owner' when sender is not an owner", async () => {
 			await truffleAssert.reverts(
-				main.swapELL(accounts[1], 100, 100, { from: accounts[1] }),
+				main.swapELL(accts[1], 100, 100, { from: accts[1] }),
 				"Sender is not owner",
 			);
 		});
 
 		it("should revert with 'Swap amount not unlocked' when ELL owner has not unlocked the swap amount in the ELL contract", async () => {
 			await truffleAssert.reverts(
-				main.swapELL(accounts[1], 100, 100),
+				main.swapELL(accts[1], 100, 100),
 				"Swap amount not unlocked",
 			);
 		});
 
 		it("should revert with 'Swap amount not unlocked' when attempting to swap more than the allowed amount", async () => {
-			await ell.approve(main.address, 100, { from: accounts[3] });
+			await ell.approve(main.address, 100, { from: accts[3] });
 			await truffleAssert.reverts(
-				main.swapELL(accounts[1], 101, 100),
+				main.swapELL(accts[1], 101, 100),
 				"Swap amount not unlocked",
 			);
 		});
 
 		describe("when swap amount is == approved ELL amount", () => {
 			it("should reduce ELL owner's balance and mint LTN of exact swap amount", async () => {
-				await ell.approve(main.address, 100, { from: accounts[3] });
-				const res = await main.swapELL(accounts[3], 100, 100);
+				await ell.approve(main.address, 100, { from: accts[3] });
+				const res = await main.swapELL(accts[3], 100, 100);
 				expect((await main.swapped()).toNumber()).to.equal(100);
 
-				let ellBal = await ell.balanceOf(accounts[3]);
+				let ellBal = await ell.balanceOf(accts[3]);
 				expect(ellBal.toString()).to.equal("149999999900");
 				let ltn = await Auction.at(await main.auc());
-				let ltnBal = await ltn.balanceOf(accounts[3]);
+				let ltnBal = await ltn.balanceOf(accts[3]);
 				expect(ltnBal.toNumber()).to.equal(100);
 
 				expect(res.logs).to.have.lengthOf(1);
@@ -172,26 +133,26 @@ contract("Main", (accounts) => {
 
 		describe("when swap amount is < approved ELL amount", () => {
 			beforeEach(async () => {
-				await ell.approve(main.address, 100, { from: accounts[3] });
-				await main.swapELL(accounts[3], 50, 100);
+				await ell.approve(main.address, 100, { from: accts[3] });
+				await main.swapELL(accts[3], 50, 100);
 				expect((await main.swapped()).toNumber()).to.equal(100);
 			});
 
 			it("should reduce ELL owner's balance and mint LTN of exact swap amount", async () => {
-				let ellBal = await ell.balanceOf(accounts[3]);
+				let ellBal = await ell.balanceOf(accts[3]);
 				expect(ellBal.toString()).to.equal("149999999950");
 				let ltn = await Auction.at(await main.auc());
-				let ltnBal = await ltn.balanceOf(accounts[3]);
+				let ltnBal = await ltn.balanceOf(accts[3]);
 				expect(ltnBal.toNumber()).to.equal(100);
 			});
 
 			it("should use up the remaining approved ELL", async () => {
-				await ell.approve(main.address, 100, { from: accounts[3] });
-				const res = await main.swapELL(accounts[3], 50, 100);
-				let ellBal = await ell.balanceOf(accounts[3]);
+				await ell.approve(main.address, 100, { from: accts[3] });
+				const res = await main.swapELL(accts[3], 50, 100);
+				let ellBal = await ell.balanceOf(accts[3]);
 				expect(ellBal.toString()).to.equal("149999999900");
 				let ltn = await Auction.at(await main.auc());
-				let ltnBal = await ltn.balanceOf(accounts[3]);
+				let ltnBal = await ltn.balanceOf(accts[3]);
 				expect(ltnBal.toNumber()).to.equal(200);
 
 				expect(res.logs).to.have.lengthOf(1);
@@ -201,23 +162,40 @@ contract("Main", (accounts) => {
 
 		describe("test max. swap supply limit", () => {
 			beforeEach(async () => {
-				await ell.approve(main.address, 9999, { from: accounts[3] });
-				await main.swapELL(accounts[3], 9999, 9999);
+				await ell.approve(main.address, 9999, { from: accts[3] });
+				await main.swapELL(accts[3], 9999, 9999);
 				expect((await main.swapped()).toNumber()).to.equal(9999);
 			});
 
 			it("should revert with 'Total swappable ELL reached' if swap will cause max. swappable supply to be exceeded", async () => {
-				await ell.approve(main.address, 2, { from: accounts[3] });
+				await ell.approve(main.address, 2, { from: accts[3] });
 				await truffleAssert.reverts(
-					main.swapELL(accounts[3], 2, 2),
+					main.swapELL(accts[3], 2, 2),
 					"Total swappable ELL reached",
 				);
 			});
 
 			it("should not revert if swap will not cause max. swappable supply to be exceeded", async () => {
-				await ell.approve(main.address, 2, { from: accounts[3] });
-				await main.swapELL(accounts[3], 1, 1);
+				await ell.approve(main.address, 2, { from: accts[3] });
+				await main.swapELL(accts[3], 1, 1);
 			});
+		});
+	});
+
+	describe(".setFundingAddress", () => {
+		it("should set funding address", async () => {
+			let curFundingAddr = await auc.fundingAddress();
+			expect(curFundingAddr).to.equal(accts[5]);
+			await main.setFundingAddress(accts[6]);
+			curFundingAddr = await auc.fundingAddress();
+			expect(curFundingAddr).to.equal(accts[6]);
+		});
+
+		it("should revert if sender is not owner", async () => {
+			await truffleAssert.reverts(
+				main.setFundingAddress(accts[2], { from: accts[4] }),
+				"Sender is not owner",
+			);
 		});
 	});
 });

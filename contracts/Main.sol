@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.6.6;
 
-import "./DepositDIL.sol";
 import "./Owner.sol";
 import "./Dilithium.sol";
 import "./Auction.sol";
@@ -19,11 +18,14 @@ struct LiquidityTicket {
 }
 
 /// @title Main
-contract Main is DepositDIL {
+contract Main is Owner {
     // ell is the Ellcrys token contract.
     EIP20 ell;
 
-    // Auction is the Latinum auction contract and token.
+    // dil is Dilithium token contract.
+    Dilithium public dil;
+
+    // auc is the Latinum auction toke contract.
     Auction public auc;
 
     // swapped keeps count of the number of LTN minted for swapped ELL tokens.
@@ -34,9 +36,6 @@ contract Main is DepositDIL {
 
     // maxSwappableELL is the maximum number of ELL that can be swapped.
     uint256 public maxSwappableELL;
-
-    // fundingAddress is the address where contract fund can be transfered to.
-    address public fundingAddress;
 
     // rewardK is K constant in liquidity reward calculation
     uint256 public rewardK;
@@ -50,49 +49,26 @@ contract Main is DepositDIL {
     event SwappedELL(address account, uint256 amount);
     event LiquidityLocked(address owner, uint256 amount);
     event LiquidityUnLocked(address owner, uint256 amount);
+    event DILMinted(address recipient, uint256 amt);
 
     /// @dev initializes the contract
-    /// @param _dilDepositFee is the DIL deposit fee.
     /// @param _maxSwappableELL max. number of ELL that can be swapped.
     /// @param _ellAddress is the contract address of the ELL token.
     /// @param _dilAddress is the contract address of the DIL token.
     /// @param _aucAddress is the contract address of the auction and LTN token.
     /// @param _uniswapV2RouterAddress is the contract address of uniswap V2 router.
     constructor(
-        uint256 _dilDepositFee,
         uint256 _maxSwappableELL,
         address _ellAddress,
         address _dilAddress,
-        address _aucAddress,
-        address _fundingAddress,
+        address payable _aucAddress,
         address payable _uniswapV2RouterAddress
     ) public {
         ell = EIP20(_ellAddress);
         auc = Auction(_aucAddress);
         dil = Dilithium(_dilAddress);
         maxSwappableELL = _maxSwappableELL;
-        fundingAddress = _fundingAddress;
-        setDilInstance(dil);
-        setDepositFee(_dilDepositFee);
         router = UniswapV2Router02(_uniswapV2RouterAddress);
-    }
-
-    receive() external payable {}
-
-    fallback() external payable {}
-
-    /// @dev setFundingAddress sets the funding address
-    /// @param addr is the address to change to.
-    function setFundingAddress(address addr) public isOwner() {
-        fundingAddress = addr;
-    }
-
-    /// @dev withdraw sends ETH to the funding address.
-    /// @param amount is the amount to be withdrawn.
-    function withdraw(uint256 amount) external {
-        require(msg.sender == fundingAddress, "Not authorized");
-        (bool success, ) = msg.sender.call{value: amount}("");
-        require(success, "Transfer failed");
     }
 
     /// @dev swapELL swaps ELL approved by from by burning it
@@ -240,6 +216,19 @@ contract Main is DepositDIL {
         auc.mint(msg.sender, 1 wei * reward);
     }
 
+    /// @notice mintDIL allows the contract owner to mint DIL tokens.
+    /// @param recipient is the beneficiary of the minted amount.
+    /// @param amt is the amount to be minted.
+    function mintDIL(address recipient, uint256 amt)
+        public
+        isOwner()
+        returns (bool)
+    {
+        dil.mint(recipient, amt);
+        emit DILMinted(recipient, amt);
+        return true;
+    }
+
     /// @dev setDecayHaltFee sets the decay halt fee.
     function setDecayHaltFee(uint256 val) public isOwner() {
         dil.setDecayHaltFee(val);
@@ -248,5 +237,11 @@ contract Main is DepositDIL {
     /// @dev setDecayDuration sets the number of seconds it takes for DIL to decay.
     function setDecayDuration(uint256 val) public isOwner() {
         dil.setDecayDuration(val);
+    }
+
+    /// @dev setFundingAddress sets the funding address
+    /// @param addr is the address to change to.
+    function setFundingAddress(address addr) public isOwner() {
+        auc.setFundingAddress(addr);
     }
 }

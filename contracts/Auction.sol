@@ -40,8 +40,15 @@ contract Auction is Latinum(address(0)) {
     // maxBid is the maximum bid
     uint256 maxBid;
 
+    // fundingAddress is the address where contract fund can be transfered to.
+    address public fundingAddress;
+
     // minReqDILSupply is the amount of DIL supply required to create the first period.
     uint256 minReqDILSupply;
+
+    event NewPeriod(uint256 index, uint256 endTime);
+    event NewBid(address addr, uint256 amount, uint256 periodIndex);
+    event NewClaim(address addr, uint256 amount, uint256 index);
 
     /// @dev isAuctionClosed is a modifier to check if the auction has closed.
     modifier isAuctionClosed() {
@@ -62,10 +69,6 @@ contract Auction is Latinum(address(0)) {
         _;
     }
 
-    event NewPeriod(uint256 index, uint256 endTime);
-    event NewBid(address addr, uint256 amount, uint256 periodIndex);
-    event NewClaim(address addr, uint256 amount, uint256 index);
-
     /// @notice The constructor
     /// @param _dilAddress is the address of the Dilithium contract.
     /// @param _minReqDILSupply is minimum number of DIL supply required to start a
@@ -78,13 +81,33 @@ contract Auction is Latinum(address(0)) {
         uint256 _minReqDILSupply,
         int256 _maxPeriods,
         uint256 _ltnSupplyPerPeriod,
-        uint256 _minBid
+        uint256 _minBid,
+        address _fundingAddress
     ) public {
         dil = Dilithium(_dilAddress);
         minBid = _minBid;
         maxPeriods = _maxPeriods;
         ltnSupplyPerPeriod = _ltnSupplyPerPeriod;
         minReqDILSupply = _minReqDILSupply;
+        fundingAddress = _fundingAddress;
+    }
+
+    receive() external payable {}
+
+    fallback() external payable {}
+
+    /// @dev setFundingAddress sets the funding address
+    /// @param addr is the address to change to.
+    function setFundingAddress(address addr) public isOwner() {
+        fundingAddress = addr;
+    }
+
+    /// @dev withdraw sends ETH to the funding address.
+    /// @param amount is the amount to be withdrawn.
+    function withdraw(uint256 amount) external {
+        require(msg.sender == fundingAddress, "Not authorized");
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
     }
 
     /// @notice makePeriod creates and returns a period. If the

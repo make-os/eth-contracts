@@ -10,7 +10,7 @@ const utils = require("./utils");
 contract("Dilithium", function (accts) {
 	let curBlockTime;
 	let dil, ltn;
-	let ltnSupplyPerPeriod, minDILSupply, maxPeriods, minBid;
+	let ltnSupplyPerPeriod, minDILSupply, maxPeriods, minBid, fundingAddr;
 	let decayHaltFee;
 	let decayDur;
 
@@ -25,12 +25,14 @@ contract("Dilithium", function (accts) {
 		maxPeriods = 2;
 		minBid = 100;
 		minDILSupply = 100;
+		fundingAddr = accts[5];
 		ltn = await Auction.new(
 			dil.address,
 			minDILSupply,
 			maxPeriods,
 			ltnSupplyPerPeriod,
 			minBid,
+			fundingAddr,
 		);
 
 		await dil.setLTNAddress(ltn.address);
@@ -63,29 +65,19 @@ contract("Dilithium", function (accts) {
 		});
 	});
 
-	describe(".setOwnerOnce", () => {
+	describe(".setOwner", () => {
 		it("should revert if sender is not the current/default owner", async () => {
 			expect(await dil.owner()).to.equal(accts[0]);
 			await truffleAssert.reverts(
-				dil.setOwnerOnce(accts[1], { from: accts[2] }),
+				dil.setOwner(accts[1], { from: accts[2] }),
 				"Sender is not owner",
 			);
 		});
 
 		it("should change the owner if the method has not be called before", async () => {
 			expect(await dil.owner()).to.equal(accts[0]);
-			const res = await dil.setOwnerOnce(accts[1]);
+			const res = await dil.setOwner(accts[1]);
 			expect(await dil.owner()).to.equal(accts[1]);
-		});
-
-		it("should revert if the method has already been called before", async () => {
-			expect(await dil.owner()).to.equal(accts[0]);
-			const res = await dil.setOwnerOnce(accts[1]);
-			expect(await dil.owner()).to.equal(accts[1]);
-			await truffleAssert.reverts(
-				dil.setOwnerOnce(accts[0], { from: accts[1] }),
-				"Owner already set",
-			);
 		});
 	});
 

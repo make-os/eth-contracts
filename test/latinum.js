@@ -34,29 +34,19 @@ contract("Latinum", (accts) => {
 		});
 	});
 
-	describe(".setOwnerOnce", () => {
+	describe(".setOwner", () => {
 		it("should revert if sender is not the current/default owner", async () => {
 			expect(await ltn.owner()).to.equal(accts[0]);
 			await truffleAssert.reverts(
-				ltn.setOwnerOnce(accts[1], { from: accts[2] }),
+				ltn.setOwner(accts[1], { from: accts[2] }),
 				"Sender is not owner",
 			);
 		});
 
 		it("should change the owner if the method has not be called before", async () => {
 			expect(await ltn.owner()).to.equal(accts[0]);
-			const res = await ltn.setOwnerOnce(accts[1]);
+			const res = await ltn.setOwner(accts[1]);
 			expect(await ltn.owner()).to.equal(accts[1]);
-		});
-
-		it("should revert if the method has already been called before", async () => {
-			expect(await ltn.owner()).to.equal(accts[0]);
-			const res = await ltn.setOwnerOnce(accts[1]);
-			expect(await ltn.owner()).to.equal(accts[1]);
-			await truffleAssert.reverts(
-				ltn.setOwnerOnce(accts[0], { from: accts[1] }),
-				"Owner already set",
-			);
 		});
 	});
 

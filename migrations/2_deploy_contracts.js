@@ -16,6 +16,7 @@ module.exports = async function (deployer, network, accounts) {
 	const MaxPeriods = 1;
 	const LTNSupplyPerPeriod = 10;
 	const MinBidAmount = 1000;
+	const FundingAddr = accounts[5];
 	await deployer.deploy(
 		Auction,
 		Dilithium.address,
@@ -23,6 +24,7 @@ module.exports = async function (deployer, network, accounts) {
 		MaxPeriods,
 		LTNSupplyPerPeriod,
 		MinBidAmount,
+		FundingAddr,
 		{ from: sender },
 	);
 	const auc = await Auction.deployed();
@@ -39,23 +41,19 @@ module.exports = async function (deployer, network, accounts) {
 	// Deploy Main contract
 	const ELLContractAddr = "0x9d9aeea38de4643066bc09d3b210737b59af3a93";
 	const MaxSwappableELL = "18984565000000000000000000"; // 18984565
-	const FundingAddr = accounts[5];
-	const DilDepositFee = "100000000000000000";
 	const UniswapRouterAddr = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
 	await deployer.deploy(
 		Main,
-		DilDepositFee,
 		MaxSwappableELL,
 		ELLContractAddr,
 		Dilithium.address,
 		Auction.address,
-		FundingAddr,
 		UniswapRouterAddr,
 		{ from: sender },
 	);
 
 	// Set the Main contract as the new owner of the Auction
 	// and Dilithium contract to Maim
-	await auc.setOwnerOnce(Main.address, { from: sender });
-	await dil.setOwnerOnce(Main.address, { from: sender });
+	await auc.setOwner(Main.address, { from: sender });
+	await dil.setOwner(Main.address, { from: sender });
 };
