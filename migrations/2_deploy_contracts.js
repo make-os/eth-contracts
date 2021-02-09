@@ -17,6 +17,7 @@ module.exports = async function (deployer, network, accounts) {
 	const LTNSupplyPerPeriod = 10;
 	const MinBidAmount = 1000;
 	const FundingAddr = accounts[5];
+	const AuctionFee = 1;
 	await deployer.deploy(
 		Auction,
 		Dilithium.address,
@@ -25,6 +26,7 @@ module.exports = async function (deployer, network, accounts) {
 		LTNSupplyPerPeriod,
 		MinBidAmount,
 		FundingAddr,
+		AuctionFee,
 		{ from: sender },
 	);
 	const auc = await Auction.deployed();

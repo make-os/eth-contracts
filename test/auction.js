@@ -26,6 +26,7 @@ contract("Auction", (accts) => {
 		minBid = 100;
 		minDILSupply = 100;
 		fundingAddr = accts[5];
+		auctionFee = 0;
 		auc = await Auction.new(
 			dil.address,
 			minDILSupply,
@@ -33,6 +34,7 @@ contract("Auction", (accts) => {
 			ltnSupplyPerPeriod,
 			minBid,
 			fundingAddr,
+			auctionFee,
 		);
 
 		await dil.setLTNAddress(auc.address);
@@ -49,6 +51,7 @@ contract("Auction", (accts) => {
 					ltnSupplyPerPeriod,
 					minBid,
 					fundingAddr,
+					auctionFee,
 				);
 				await truffleAssert.reverts(
 					auc.makePeriod(),
@@ -65,6 +68,7 @@ contract("Auction", (accts) => {
 					ltnSupplyPerPeriod,
 					minBid,
 					fundingAddr,
+					auctionFee,
 				);
 
 				await dil.mint(accts[0], minDILSupply);
@@ -88,6 +92,7 @@ contract("Auction", (accts) => {
 					ltnSupplyPerPeriod,
 					minBid,
 					fundingAddr,
+					auctionFee,
 				);
 
 				await dil.mint(accts[0], minDILSupply);
@@ -108,6 +113,7 @@ contract("Auction", (accts) => {
 				ltnSupplyPerPeriod,
 				minBid,
 				fundingAddr,
+				auctionFee,
 			);
 
 			await dil.mint(accts[0], minDILSupply);
@@ -126,6 +132,7 @@ contract("Auction", (accts) => {
 				ltnSupplyPerPeriod,
 				minBid,
 				fundingAddr,
+				auctionFee,
 			);
 
 			await dil.mint(accts[0], minDILSupply);
@@ -155,10 +162,14 @@ contract("Auction", (accts) => {
 		});
 	}
 
-	function bid(account, amount) {
+	function bid(account, amount, value) {
 		return new Promise(async (res, rej) => {
 			try {
-				await auc.bid(amount, { from: account });
+				let opt = { from: account };
+				if (value) {
+					opt.value = value;
+				}
+				await auc.bid(amount, opt);
 				res();
 			} catch (error) {
 				rej(error);
@@ -176,6 +187,7 @@ contract("Auction", (accts) => {
 				ltnSupplyPerPeriod,
 				minBid,
 				fundingAddr,
+				auctionFee,
 			);
 
 			await dil.mint(accts[0], minDILSupply);
@@ -193,6 +205,7 @@ contract("Auction", (accts) => {
 				ltnSupplyPerPeriod,
 				minBid,
 				fundingAddr,
+				auctionFee,
 			);
 			await truffleAssert.reverts(auc.bid(1000), "Amount not unlocked");
 		});
@@ -207,6 +220,7 @@ contract("Auction", (accts) => {
 				ltnSupplyPerPeriod,
 				minBid,
 				fundingAddr,
+				auctionFee,
 			);
 
 			await unlock(accts[1], 999);
@@ -228,6 +242,7 @@ contract("Auction", (accts) => {
 				ltnSupplyPerPeriod,
 				minBid,
 				fundingAddr,
+				auctionFee,
 			);
 
 			await unlock(accts[1], 100000000);
@@ -248,6 +263,7 @@ contract("Auction", (accts) => {
 					ltnSupplyPerPeriod,
 					minBid,
 					fundingAddr,
+					auctionFee,
 				);
 
 				await unlock(accts[1], 1000);
@@ -286,6 +302,7 @@ contract("Auction", (accts) => {
 					ltnSupplyPerPeriod,
 					minBid,
 					fundingAddr,
+					auctionFee,
 				);
 
 				await unlock(accts[1], 1500);
@@ -333,6 +350,7 @@ contract("Auction", (accts) => {
 					ltnSupplyPerPeriod,
 					minBid,
 					fundingAddr,
+					auctionFee,
 				);
 				await unlock(accts[1], 600);
 				await bid(accts[1], 100);
@@ -348,6 +366,7 @@ contract("Auction", (accts) => {
 		describe("when there are more than 7 periods", () => {
 			beforeEach(async () => {
 				maxPeriods = 10;
+				auctionFee = 1000;
 				auc = await Auction.new(
 					dil.address,
 					minDILSupply,
@@ -355,6 +374,7 @@ contract("Auction", (accts) => {
 					ltnSupplyPerPeriod,
 					minBid,
 					fundingAddr,
+					auctionFee,
 				);
 				await unlock(accts[1], 100000000);
 				await bid(accts[1], 100);
@@ -381,20 +401,18 @@ contract("Auction", (accts) => {
 				);
 			});
 
-			it("should accept bid if minBid is >= (50 * minBid)", async () => {
-				await utils.advanceTime(86500);
-				await bid(accts[1], minBid * 50);
-			});
-
-			it("should revert with 'Bid amount too high' if minBid is > (1000 * minBid)", async () => {
+			it("should revert if deposit fee sent is insufficient", async () => {
 				await truffleAssert.reverts(
-					bid(accts[1], minBid * 1000 + 1),
-					"Bid amount too high",
+					bid(accts[1], minBid * 50, 100),
+					"Auction fee too low",
 				);
 			});
 
-			it("should not revert if minBid is <= (1000 * minBid)", async () => {
-				await bid(accts[1], minBid * 1000);
+			it("should accept bid if minBid is >= (50 * minBid) and auction fee is sufficient", async () => {
+				await utils.advanceTime(86500);
+				let bidAmt = minBid * 50;
+				let aucFee = auctionFee * bidAmt;
+				await bid(accts[1], minBid * 50, aucFee);
 			});
 		});
 	});
@@ -415,6 +433,7 @@ contract("Auction", (accts) => {
 				ltnSupplyPerPeriod,
 				minBid,
 				fundingAddr,
+				auctionFee,
 			);
 			await unlock(accts[1], 120000);
 			await bid(accts[1], 120000);
@@ -434,6 +453,7 @@ contract("Auction", (accts) => {
 				ltnSupplyPerPeriod,
 				minBid,
 				fundingAddr,
+				auctionFee,
 			);
 			await unlock(accts[1], 1200000);
 			await bid(accts[1], 1200000);
@@ -461,6 +481,7 @@ contract("Auction", (accts) => {
 						ltnSupplyPerPeriod,
 						minBid,
 						fundingAddr,
+						auctionFee,
 					);
 					await unlock(accts[1], 500);
 					await bid(accts[1], 500);
@@ -480,6 +501,7 @@ contract("Auction", (accts) => {
 						ltnSupplyPerPeriod,
 						minBid,
 						fundingAddr,
+						auctionFee,
 					);
 					await unlock(accts[1], 500);
 					await bid(accts[1], 500);
@@ -500,6 +522,7 @@ contract("Auction", (accts) => {
 						ltnSupplyPerPeriod,
 						minBid,
 						fundingAddr,
+						auctionFee,
 					);
 					await unlock(accts[1], 1200);
 					await bid(accts[1], 500);
@@ -522,6 +545,7 @@ contract("Auction", (accts) => {
 						ltnSupplyPerPeriod,
 						minBid,
 						fundingAddr,
+						auctionFee,
 					);
 					await unlock(accts[1], 500);
 					await bid(accts[1], 500);
@@ -553,6 +577,7 @@ contract("Auction", (accts) => {
 						ltnSupplyPerPeriod,
 						minBid,
 						fundingAddr,
+						auctionFee,
 					);
 					await unlock(accts[1], 500);
 					await bid(accts[1], 500);
@@ -578,28 +603,27 @@ contract("Auction", (accts) => {
 			});
 		});
 
-		describe("within two or more periods", () => {
-			describe("when only one bid is received per period", () => {
-				it("should allocate 100% of both periods supply to the only bidder", async () => {
-					auc = await Auction.new(
-						dil.address,
-						minDILSupply,
-						maxPeriods,
-						ltnSupplyPerPeriod,
-						minBid,
-						fundingAddr,
-					);
-					await unlock(accts[1], 1000);
-					await bid(accts[1], 500);
-					utils.advanceTime(86500);
-					await bid(accts[1], 500);
-					await utils.advanceTime(86500);
-					expect((await auc.getNumOfPeriods()).toNumber()).to.equal(2);
-					await auc.claim({ from: accts[1] });
-					expect((await auc.balanceOf(accts[1])).toNumber()).to.equal(2000);
+		describe("within two or more periods and when only one bid is received per period", () => {
+			it("should allocate 100% of both periods supply to the only bidder", async () => {
+				auc = await Auction.new(
+					dil.address,
+					minDILSupply,
+					maxPeriods,
+					ltnSupplyPerPeriod,
+					minBid,
+					fundingAddr,
+					auctionFee,
+				);
+				await unlock(accts[1], 1000);
+				await bid(accts[1], 500);
+				utils.advanceTime(86500);
+				await bid(accts[1], 500);
+				await utils.advanceTime(86500);
+				expect((await auc.getNumOfPeriods()).toNumber()).to.equal(2);
+				await auc.claim({ from: accts[1] });
+				expect((await auc.balanceOf(accts[1])).toNumber()).to.equal(2000);
 
-					expect((await auc.getNumOfClaims({ from: accts[1] })).toNumber()).to.equal(0);
-				});
+				expect((await auc.getNumOfClaims({ from: accts[1] })).toNumber()).to.equal(0);
 			});
 		});
 	});
@@ -639,6 +663,21 @@ contract("Auction", (accts) => {
 			let curFundingAddrBal = await web3.eth.getBalance(accts[5]);
 			expect(new web3.utils.BN(fundingAddrBal).lt(new web3.utils.BN(curFundingAddrBal)))
 				.to.be.true;
+		});
+	});
+
+	describe(".setFee", () => {
+		it("should revert if sender is not owner", async () => {
+			await truffleAssert.reverts(
+				auc.setFee(10000, { from: accts[2] }),
+				"Sender is not owner",
+			);
+		});
+
+		it("should update fee", async () => {
+			expect((await auc.fee()).toNumber()).to.equal(auctionFee);
+			await auc.setFee(10000, { from: accts[0] });
+			expect((await auc.fee()).toNumber()).to.equal(10000);
 		});
 	});
 

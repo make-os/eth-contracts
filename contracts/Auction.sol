@@ -40,6 +40,9 @@ contract Auction is Latinum(address(0)) {
     // maxBid is the maximum bid
     uint256 maxBid;
 
+    // fee is the auction fee paid for each DIL in a bid.
+    uint256 public fee;
+
     // fundingAddress is the address where contract fund can be transfered to.
     address public fundingAddress;
 
@@ -82,7 +85,8 @@ contract Auction is Latinum(address(0)) {
         int256 _maxPeriods,
         uint256 _ltnSupplyPerPeriod,
         uint256 _minBid,
-        address _fundingAddress
+        address _fundingAddress,
+        uint256 _fee
     ) public {
         dil = Dilithium(_dilAddress);
         minBid = _minBid;
@@ -90,11 +94,18 @@ contract Auction is Latinum(address(0)) {
         ltnSupplyPerPeriod = _ltnSupplyPerPeriod;
         minReqDILSupply = _minReqDILSupply;
         fundingAddress = _fundingAddress;
+        fee = _fee;
     }
 
     receive() external payable {}
 
     fallback() external payable {}
+
+    /// @dev setFee sets the auction fee.
+    /// @param _fee is the new auction fee.
+    function setFee(uint256 _fee) public isOwner() {
+        fee = _fee;
+    }
 
     /// @dev setFundingAddress sets the funding address
     /// @param addr is the address to change to.
@@ -157,10 +168,12 @@ contract Auction is Latinum(address(0)) {
     /// must have been unlocked in the DIL contract.
     function bid(uint256 bidAmt)
         public
+        payable
         isAuctionClosed()
         isBidAmountUnlocked(msg.sender, bidAmt)
         returns (bool)
     {
+        require(getNumOfClaims() + 1 <= 5, "Too many unprocessed claims");
         uint256 index = makePeriod();
 
         if (
@@ -170,14 +183,13 @@ contract Auction is Latinum(address(0)) {
             revert("Bid amount too small");
         }
 
-        if (
-            (index <= 6 && bidAmt > minBid * 10) ||
-            (index > 6 && bidAmt > minBid * 1000)
-        ) {
+        if ((index <= 6 && bidAmt > minBid * 10)) {
             revert("Bid amount too high");
         }
 
-        require(getNumOfClaims() + 1 <= 5, "Too many unprocessed claims");
+        if (index > 6 && msg.value < bidAmt * fee) {
+            revert("Auction fee too low");
+        }
 
         // Burn the the bid amount
         dil.transferFrom(msg.sender, address(this), bidAmt);

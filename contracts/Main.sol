@@ -244,4 +244,10 @@ contract Main is Owner {
     function setFundingAddress(address addr) public isOwner() {
         auc.setFundingAddress(addr);
     }
+
+    /// @dev setFee sets the auction fee.
+    /// @param _fee is the new auction fee.
+    function setFee(uint256 _fee) public isOwner() {
+        auc.setFee(_fee);
+    }
 }
