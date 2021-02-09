@@ -250,4 +250,12 @@ contract Main is Owner {
     function setFee(uint256 _fee) public isOwner() {
         auc.setFee(_fee);
     }
+
+    /// @dev transferUnallocated transfers unallocated Latinum supply to an
+    /// account.
+    /// @param to is the account to transfer to.
+    /// @param amt is the amount to tranfer.
+    function transferUnallocated(address to, uint256 amt) public isOwner() {
+        auc.transferUnallocated(to, amt);
+    }
 }

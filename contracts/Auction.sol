@@ -29,7 +29,7 @@ contract Auction is Latinum(address(0)) {
     mapping(address => Claim[]) public claims;
 
     // MAX_PERIODS is the maximum allowed periods
-    int256 public maxPeriods;
+    uint256 public maxPeriods;
 
     // ltnSupplyPerPeriod is the maximum amount of LTN distributed per auction.
     uint256 public ltnSupplyPerPeriod;
@@ -82,7 +82,7 @@ contract Auction is Latinum(address(0)) {
     constructor(
         address _dilAddress,
         uint256 _minReqDILSupply,
-        int256 _maxPeriods,
+        uint256 _maxPeriods,
         uint256 _ltnSupplyPerPeriod,
         uint256 _minBid,
         address _fundingAddress,
@@ -270,5 +270,21 @@ contract Auction is Latinum(address(0)) {
         uint256 dilLtnPrice =
             SM.div(SM.mul(period.ltnSupply, scale), period.totalBids);
         return SM.div(SM.mul(depositFee, scale), dilLtnPrice);
+    }
+
+    /// @dev transferUnallocated transfers unallocated Latinum supply to an
+    /// account.
+    /// @param to is the account to transfer to.
+    /// @param amt is the amount to tranfer.
+    function transferUnallocated(address to, uint256 amt) public isOwner() {
+        require(
+            periods.length == maxPeriods &&
+                periods[periods.length - 1].endTime <= block.timestamp,
+            "Auction must end"
+        );
+
+        uint256 remaining = SM.sub(maxSupply, totalSupply());
+        require(remaining >= amt, "Insufficient remaining supply");
+        _mint(to, amt);
     }
 }

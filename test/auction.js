@@ -695,4 +695,74 @@ contract("Auction", (accts) => {
 			expect(await auc.fundingAddress()).to.equal(accts[6]);
 		});
 	});
+
+	describe(".transferUnallocated", () => {
+		it("should revert if auction has not ended", async () => {
+			await truffleAssert.reverts(
+				auc.transferUnallocated(accts[3], 1000),
+				"Auction must end",
+			);
+
+			maxPeriods = 2;
+			auc = await Auction.new(
+				dil.address,
+				minDILSupply,
+				maxPeriods,
+				ltnSupplyPerPeriod,
+				minBid,
+				fundingAddr,
+				auctionFee,
+			);
+			await unlock(accts[1], 100);
+			await bid(accts[1], 100);
+			utils.advanceTime(86500);
+			await truffleAssert.reverts(
+				auc.transferUnallocated(accts[3], 1000),
+				"Auction must end",
+			);
+		});
+
+		it("should revert if transfer amount surpasses unallocated supply", async () => {
+			maxPeriods = 1;
+			auc = await Auction.new(
+				dil.address,
+				minDILSupply,
+				maxPeriods,
+				ltnSupplyPerPeriod,
+				minBid,
+				fundingAddr,
+				auctionFee,
+			);
+
+			await unlock(accts[1], 100);
+			await bid(accts[1], 100);
+			utils.advanceTime(86500);
+
+			await truffleAssert.reverts(
+				auc.transferUnallocated(accts[3], "200000000000000000000000000"),
+				"Insufficient remaining supply",
+			);
+		});
+
+		it("should transfer all unallocated supply", async () => {
+			maxPeriods = 1;
+			auc = await Auction.new(
+				dil.address,
+				minDILSupply,
+				maxPeriods,
+				ltnSupplyPerPeriod,
+				minBid,
+				fundingAddr,
+				auctionFee,
+			);
+
+			await unlock(accts[1], 100);
+			await bid(accts[1], 100);
+			utils.advanceTime(86500);
+
+			await auc.transferUnallocated(accts[3], 1000);
+			let bal = await auc.balanceOf(accts[3]);
+			expect(bal.eq(new web3.utils.BN(1000))).to.be.true;
+		});
+	});
 });
