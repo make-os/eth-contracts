@@ -417,53 +417,6 @@ contract("Auction", (accts) => {
 		});
 	});
 
-	describe(".getLTNPriceInPeriod", async function () {
-		it("should revert if no period at the given index", async () => {
-			await truffleAssert.reverts(auc.getLTNPriceInPeriod(1, 0), "Invalid index");
-			await truffleAssert.reverts(auc.getLTNPriceInPeriod(0, 0), "Invalid index");
-		});
-
-		it("should calculate LTN price", async () => {
-			minBid = 100000;
-			ltnSupplyPerPeriod = 300000;
-			auc = await Auction.new(
-				dil.address,
-				minDILSupply,
-				maxPeriods,
-				ltnSupplyPerPeriod,
-				minBid,
-				fundingAddr,
-				auctionFee,
-			);
-			await unlock(accts[1], 120000);
-			await bid(accts[1], 120000);
-			expect((await auc.getNumOfPeriods()).toNumber()).to.equal(1);
-			let depositFee = web3.utils.toWei("0.00014");
-			let price = await auc.getLTNPriceInPeriod(0, depositFee);
-			expect(price.toString()).to.equal("56000000000000");
-		});
-
-		it("should calculate LTN price (2)", async () => {
-			minBid = 1000000;
-			ltnSupplyPerPeriod = 300000;
-			auc = await Auction.new(
-				dil.address,
-				minDILSupply,
-				maxPeriods,
-				ltnSupplyPerPeriod,
-				minBid,
-				fundingAddr,
-				auctionFee,
-			);
-			await unlock(accts[1], 1200000);
-			await bid(accts[1], 1200000);
-			expect((await auc.getNumOfPeriods()).toNumber()).to.equal(1);
-			let depositFee = web3.utils.toWei("0.00014");
-			let price = await auc.getLTNPriceInPeriod(0, depositFee);
-			expect(price.toString()).to.equal("560000000000000");
-		});
-	});
-
 	describe(".claim", () => {
 		beforeEach(() => {
 			maxPeriods = 2;

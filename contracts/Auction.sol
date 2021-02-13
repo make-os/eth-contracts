@@ -31,14 +31,14 @@ contract Auction is Latinum(address(0)) {
     // MAX_PERIODS is the maximum allowed periods
     uint256 public maxPeriods;
 
+    // numPeriods keeps count of the number of periods
+    uint256 public numPeriods;
+
     // ltnSupplyPerPeriod is the maximum amount of LTN distributed per auction.
     uint256 public ltnSupplyPerPeriod;
 
     // minBid is the minimum bid
-    uint256 minBid;
-
-    // maxBid is the maximum bid
-    uint256 maxBid;
+    uint256 public minBid;
 
     // fee is the auction fee paid for each DIL in a bid.
     uint256 public fee;
@@ -138,6 +138,7 @@ contract Auction is Latinum(address(0)) {
             period = Period(block.timestamp + 24 hours, ltnSupplyPerPeriod, 0);
             periods.push(period);
             index = periods.length - 1;
+            numPeriods++;
             emit NewPeriod(index, period.endTime);
         }
 
@@ -152,6 +153,7 @@ contract Auction is Latinum(address(0)) {
             period = Period(period.endTime + 24 hours, ltnSupplyPerPeriod, 0);
             periods.push(period);
             index = periods.length - 1;
+            numPeriods++;
             emit NewPeriod(index, period.endTime);
         }
 
@@ -249,27 +251,6 @@ contract Auction is Latinum(address(0)) {
         } else {
             delete claims[msg.sender];
         }
-    }
-
-    /// @dev getLTNPriceInPeriod calculates LTN price based on state of a period and
-    /// a Dilithium deposit fee value. This is meant to be used as a price
-    /// suggestion for a given period.
-    /// @param index is the index of a period.
-    /// @param depositFee is the cost of depositing into the Dilithium token
-    /// contract.
-    /// @return the price in wei.
-    function getLTNPriceInPeriod(uint256 index, uint256 depositFee)
-        public
-        view
-        returns (uint256)
-    {
-        uint256 numPeriods = periods.length;
-        require(numPeriods > 0 && numPeriods - 1 <= index, "Invalid index");
-        Period memory period = periods[index];
-        uint256 scale = 10**18;
-        uint256 dilLtnPrice =
-            SM.div(SM.mul(period.ltnSupply, scale), period.totalBids);
-        return SM.div(SM.mul(depositFee, scale), dilLtnPrice);
     }
 
     /// @dev transferUnallocated transfers unallocated Latinum supply to an
