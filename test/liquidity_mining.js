@@ -31,7 +31,8 @@ describe("LiquidityMining", function () {
 		fundingAddr,
 		maxInitialLiquidityFund,
 		decayHaltFee,
-		decayDur;
+		decayDur,
+		auctionFee;
 	let r;
 	let lp;
 	let lps;
@@ -64,6 +65,7 @@ describe("LiquidityMining", function () {
 		minBid = 100;
 		minDILSupply = 100;
 		fundingAddr = accts[5].address;
+		auctionFee = 0;
 		auc = await Waffle.deployContract(accts[0], AuctionBytecode, [
 			dil.address,
 			minDILSupply,
@@ -71,6 +73,7 @@ describe("LiquidityMining", function () {
 			ltnSupplyPerPeriod,
 			minBid,
 			fundingAddr,
+			auctionFee,
 		]);
 
 		await dil.setLTNAddress(auc.address);

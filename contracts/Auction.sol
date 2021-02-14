@@ -79,6 +79,7 @@ contract Auction is Latinum(address(0)) {
     /// @param _maxPeriods is the number of auction periods.
     /// @param _ltnSupplyPerPeriod is the supply of Latinum per period.
     /// @param _minBid is minimum bid per period.
+    /// @param _fee is the auction fee
     constructor(
         address _dilAddress,
         uint256 _minReqDILSupply,
@@ -216,6 +217,11 @@ contract Auction is Latinum(address(0)) {
     /// @dev getNumOfClaims returns the number of claims the sender has.
     function getNumOfClaims() public view returns (uint256) {
         return claims[msg.sender].length;
+    }
+
+    /// @dev getNumOfClaimsOfAddr returns the number of an address.
+    function getNumOfClaimsOfAddr(address addr) public view returns (uint256) {
+        return claims[addr].length;
     }
 
     /// @dev claim

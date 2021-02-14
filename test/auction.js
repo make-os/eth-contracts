@@ -14,6 +14,7 @@ contract("Auction", (accts) => {
 		minBid,
 		decayHaltFee,
 		decayDur,
+		auctionFee,
 		fundingAddr;
 
 	beforeEach(async () => {

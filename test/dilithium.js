@@ -10,7 +10,7 @@ const utils = require("./utils");
 contract("Dilithium", function (accts) {
 	let curBlockTime;
 	let dil, ltn;
-	let ltnSupplyPerPeriod, minDILSupply, maxPeriods, minBid, fundingAddr;
+	let ltnSupplyPerPeriod, minDILSupply, maxPeriods, minBid, fundingAddr, auctionFee;
 	let decayHaltFee;
 	let decayDur;
 
@@ -26,6 +26,7 @@ contract("Dilithium", function (accts) {
 		minBid = 100;
 		minDILSupply = 100;
 		fundingAddr = accts[5];
+		auctionFee = 0;
 		ltn = await Auction.new(
 			dil.address,
 			minDILSupply,
@@ -33,6 +34,7 @@ contract("Dilithium", function (accts) {
 			ltnSupplyPerPeriod,
 			minBid,
 			fundingAddr,
+			auctionFee,
 		);
 
 		await dil.setLTNAddress(ltn.address);

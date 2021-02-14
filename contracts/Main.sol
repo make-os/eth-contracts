@@ -77,16 +77,11 @@ contract Main is Owner {
     /// Requirement: The function requires the ELL account (from) to have allowed
     /// the contract to transfer the swap amount.
     ///
-    /// @param from is the account whose ELL will be burned for LTN.
     /// @param swapAmount is the amount of ELL that 'from' has approved to be burned.
     /// @param mintAmount is the amount of LTN that the contract will swap burned ELL for.
-    function swapELL(
-        address from,
-        uint256 swapAmount,
-        uint256 mintAmount
-    ) public isOwner() {
+    function swapELL(uint256 swapAmount, uint256 mintAmount) public {
         require(
-            ell.allowance(from, address(this)) >= swapAmount,
+            ell.allowance(msg.sender, address(this)) >= swapAmount,
             "Swap amount not unlocked"
         );
         require(
@@ -94,11 +89,11 @@ contract Main is Owner {
             "Total swappable ELL reached"
         );
 
-        ell.transferFrom(from, address(0), swapAmount);
-        auc.mint(from, mintAmount);
+        ell.transferFrom(msg.sender, address(0), swapAmount);
+        auc.mint(msg.sender, mintAmount);
         swapped = SM.add(swapped, mintAmount);
         ellSwapped = SM.add(ellSwapped, swapAmount);
-        emit SwappedELL(from, swapAmount);
+        emit SwappedELL(msg.sender, swapAmount);
     }
 
     /// @dev lockLiquidity locks LTN/ETH Uniswap liquidity.

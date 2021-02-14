@@ -18,6 +18,7 @@ contract("Main", (accts) => {
 		fundingAddr,
 		maxInitialLiquidityFund,
 		decayHaltFee,
+		auctionFee,
 		decayDur;
 
 	beforeEach(async () => {
@@ -35,6 +36,7 @@ contract("Main", (accts) => {
 		dil = await Dilithium.new(decayHaltFee, decayDur, { from: accts[0] });
 
 		fundingAddr = accts[5];
+		auctionFee = 0;
 		auc = await Auction.new(
 			dil.address,
 			minDILSupply,
@@ -42,6 +44,7 @@ contract("Main", (accts) => {
 			ltnSupplyPerPeriod,
 			minBid,
 			fundingAddr,
+			auctionFee,
 			{ from: accts[0] },
 		);
 
@@ -92,32 +95,22 @@ contract("Main", (accts) => {
 	});
 
 	describe(".swapELL", async function () {
-		it("should revert with 'Sender is not owner' when sender is not an owner", async () => {
-			await truffleAssert.reverts(
-				main.swapELL(accts[1], 100, 100, { from: accts[1] }),
-				"Sender is not owner",
-			);
-		});
-
 		it("should revert with 'Swap amount not unlocked' when ELL owner has not unlocked the swap amount in the ELL contract", async () => {
 			await truffleAssert.reverts(
-				main.swapELL(accts[1], 100, 100),
+				main.swapELL(100, 100, { from: accts[1] }),
 				"Swap amount not unlocked",
 			);
 		});
 
 		it("should revert with 'Swap amount not unlocked' when attempting to swap more than the allowed amount", async () => {
 			await ell.approve(main.address, 100, { from: accts[3] });
-			await truffleAssert.reverts(
-				main.swapELL(accts[1], 101, 100),
-				"Swap amount not unlocked",
-			);
+			await truffleAssert.reverts(main.swapELL(101, 100), "Swap amount not unlocked");
 		});
 
 		describe("when swap amount is == approved ELL amount", () => {
 			it("should reduce ELL owner's balance and mint LTN of exact swap amount", async () => {
 				await ell.approve(main.address, 100, { from: accts[3] });
-				const res = await main.swapELL(accts[3], 100, 100);
+				const res = await main.swapELL(100, 100, { from: accts[3] });
 				expect((await main.swapped()).toNumber()).to.equal(100);
 
 				let ellBal = await ell.balanceOf(accts[3]);
@@ -134,7 +127,7 @@ contract("Main", (accts) => {
 		describe("when swap amount is < approved ELL amount", () => {
 			beforeEach(async () => {
 				await ell.approve(main.address, 100, { from: accts[3] });
-				await main.swapELL(accts[3], 50, 100);
+				await main.swapELL(50, 100, { from: accts[3] });
 				expect((await main.swapped()).toNumber()).to.equal(100);
 			});
 
@@ -148,7 +141,7 @@ contract("Main", (accts) => {
 
 			it("should use up the remaining approved ELL", async () => {
 				await ell.approve(main.address, 100, { from: accts[3] });
-				const res = await main.swapELL(accts[3], 50, 100);
+				const res = await main.swapELL(50, 100, { from: accts[3] });
 				let ellBal = await ell.balanceOf(accts[3]);
 				expect(ellBal.toString()).to.equal("149999999900");
 				let ltn = await Auction.at(await main.auc());
@@ -163,21 +156,21 @@ contract("Main", (accts) => {
 		describe("test max. swap supply limit", () => {
 			beforeEach(async () => {
 				await ell.approve(main.address, 9999, { from: accts[3] });
-				await main.swapELL(accts[3], 9999, 9999);
+				await main.swapELL(9999, 9999, { from: accts[3] });
 				expect((await main.swapped()).toNumber()).to.equal(9999);
 			});
 
 			it("should revert with 'Total swappable ELL reached' if swap will cause max. swappable supply to be exceeded", async () => {
 				await ell.approve(main.address, 2, { from: accts[3] });
 				await truffleAssert.reverts(
-					main.swapELL(accts[3], 2, 2),
+					main.swapELL(2, 2, { from: accts[3] }),
 					"Total swappable ELL reached",
 				);
 			});
 
 			it("should not revert if swap will not cause max. swappable supply to be exceeded", async () => {
 				await ell.approve(main.address, 2, { from: accts[3] });
-				await main.swapELL(accts[3], 1, 1);
+				await main.swapELL(1, 1, { from: accts[3] });
 			});
 		});
 	});
