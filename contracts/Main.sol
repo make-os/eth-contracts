@@ -71,15 +71,14 @@ contract Main is Owner {
         router = UniswapV2Router02(_uniswapV2RouterAddress);
     }
 
-    /// @dev swapELL swaps ELL approved by from by burning it
-    /// and minting new LTN up to the given mint amount.
+    /// @dev swapELL swaps ELL approved by <from> by burning it
+    /// and minting LTN of upto 10% of the burned ELL.
     ///
     /// Requirement: The function requires the ELL account (from) to have allowed
     /// the contract to transfer the swap amount.
     ///
     /// @param swapAmount is the amount of ELL that 'from' has approved to be burned.
-    /// @param mintAmount is the amount of LTN that the contract will swap burned ELL for.
-    function swapELL(uint256 swapAmount, uint256 mintAmount) public {
+    function swapELL(uint256 swapAmount) public {
         require(
             ell.allowance(msg.sender, address(this)) >= swapAmount,
             "Swap amount not unlocked"
@@ -88,6 +87,9 @@ contract Main is Owner {
             SM.add(ellSwapped, swapAmount) <= maxSwappableELL,
             "Total swappable ELL reached"
         );
+
+        uint256 mintAmount =
+            SM.sub(swapAmount, SM.div(SM.mul(swapAmount, 900), 1000));
 
         ell.transferFrom(msg.sender, address(0), swapAmount);
         auc.mint(msg.sender, mintAmount);

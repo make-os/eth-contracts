@@ -97,27 +97,27 @@ contract("Main", (accts) => {
 	describe(".swapELL", async function () {
 		it("should revert with 'Swap amount not unlocked' when ELL owner has not unlocked the swap amount in the ELL contract", async () => {
 			await truffleAssert.reverts(
-				main.swapELL(100, 100, { from: accts[1] }),
+				main.swapELL(100, { from: accts[1] }),
 				"Swap amount not unlocked",
 			);
 		});
 
 		it("should revert with 'Swap amount not unlocked' when attempting to swap more than the allowed amount", async () => {
 			await ell.approve(main.address, 100, { from: accts[3] });
-			await truffleAssert.reverts(main.swapELL(101, 100), "Swap amount not unlocked");
+			await truffleAssert.reverts(main.swapELL(101), "Swap amount not unlocked");
 		});
 
 		describe("when swap amount is == approved ELL amount", () => {
 			it("should reduce ELL owner's balance and mint LTN of exact swap amount", async () => {
 				await ell.approve(main.address, 100, { from: accts[3] });
-				const res = await main.swapELL(100, 100, { from: accts[3] });
-				expect((await main.swapped()).toNumber()).to.equal(100);
+				const res = await main.swapELL(100, { from: accts[3] });
+				expect((await main.swapped()).toNumber()).to.equal(10);
 
 				let ellBal = await ell.balanceOf(accts[3]);
 				expect(ellBal.toString()).to.equal("149999999900");
 				let ltn = await Auction.at(await main.auc());
 				let ltnBal = await ltn.balanceOf(accts[3]);
-				expect(ltnBal.toNumber()).to.equal(100);
+				expect(ltnBal.toNumber()).to.equal(10);
 
 				expect(res.logs).to.have.lengthOf(1);
 				expect(res.logs[0].event).to.equal("SwappedELL");
@@ -127,8 +127,8 @@ contract("Main", (accts) => {
 		describe("when swap amount is < approved ELL amount", () => {
 			beforeEach(async () => {
 				await ell.approve(main.address, 100, { from: accts[3] });
-				await main.swapELL(50, 100, { from: accts[3] });
-				expect((await main.swapped()).toNumber()).to.equal(100);
+				await main.swapELL(50, { from: accts[3] });
+				expect((await main.swapped()).toNumber()).to.equal(5);
 			});
 
 			it("should reduce ELL owner's balance and mint LTN of exact swap amount", async () => {
@@ -136,41 +136,43 @@ contract("Main", (accts) => {
 				expect(ellBal.toString()).to.equal("149999999950");
 				let ltn = await Auction.at(await main.auc());
 				let ltnBal = await ltn.balanceOf(accts[3]);
-				expect(ltnBal.toNumber()).to.equal(100);
+				expect(ltnBal.toNumber()).to.equal(5);
 			});
 
 			it("should use up the remaining approved ELL", async () => {
-				await ell.approve(main.address, 100, { from: accts[3] });
-				const res = await main.swapELL(50, 100, { from: accts[3] });
+				const res = await main.swapELL(50, { from: accts[3] });
 				let ellBal = await ell.balanceOf(accts[3]);
 				expect(ellBal.toString()).to.equal("149999999900");
 				let ltn = await Auction.at(await main.auc());
 				let ltnBal = await ltn.balanceOf(accts[3]);
-				expect(ltnBal.toNumber()).to.equal(200);
+				expect(ltnBal.toNumber()).to.equal(10);
 
 				expect(res.logs).to.have.lengthOf(1);
 				expect(res.logs[0].event).to.equal("SwappedELL");
+
+				let remaining = await ell.allowance(accts[3], main.address);
+				expect(remaining.toNumber()).to.equal(0);
 			});
 		});
 
 		describe("test max. swap supply limit", () => {
 			beforeEach(async () => {
 				await ell.approve(main.address, 9999, { from: accts[3] });
-				await main.swapELL(9999, 9999, { from: accts[3] });
-				expect((await main.swapped()).toNumber()).to.equal(9999);
+				await main.swapELL(9999, { from: accts[3] });
+				expect((await main.swapped()).toNumber()).to.equal(1000);
 			});
 
 			it("should revert with 'Total swappable ELL reached' if swap will cause max. swappable supply to be exceeded", async () => {
 				await ell.approve(main.address, 2, { from: accts[3] });
 				await truffleAssert.reverts(
-					main.swapELL(2, 2, { from: accts[3] }),
+					main.swapELL(2, { from: accts[3] }),
 					"Total swappable ELL reached",
 				);
 			});
 
 			it("should not revert if swap will not cause max. swappable supply to be exceeded", async () => {
 				await ell.approve(main.address, 2, { from: accts[3] });
-				await main.swapELL(1, 1, { from: accts[3] });
+				await main.swapELL(1, { from: accts[3] });
 			});
 		});
 	});
