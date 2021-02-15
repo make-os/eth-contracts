@@ -95,16 +95,24 @@ contract("Main", (accts) => {
 	});
 
 	describe(".swapELL", async function () {
-		it("should revert with 'Swap amount not unlocked' when ELL owner has not unlocked the swap amount in the ELL contract", async () => {
+		it("should revert with 'Amount not unlocked' when ELL owner has not unlocked the swap amount in the ELL contract", async () => {
 			await truffleAssert.reverts(
 				main.swapELL(100, { from: accts[1] }),
-				"Swap amount not unlocked",
+				"Amount not unlocked",
 			);
 		});
 
-		it("should revert with 'Swap amount not unlocked' when attempting to swap more than the allowed amount", async () => {
+		it("should revert with 'Amount not unlocked' when attempting to swap more than the allowed amount", async () => {
 			await ell.approve(main.address, 100, { from: accts[3] });
-			await truffleAssert.reverts(main.swapELL(101), "Swap amount not unlocked");
+			await truffleAssert.reverts(main.swapELL(101), "Amount not unlocked");
+		});
+
+		it("should revert with 'Amount cannot be zero' when swap amount is zero", async () => {
+			await ell.approve(main.address, 100, { from: accts[3] });
+			await truffleAssert.reverts(
+				main.swapELL(0, { from: accts[3] }),
+				"Amount cannot be zero",
+			);
 		});
 
 		describe("when swap amount is == approved ELL amount", () => {

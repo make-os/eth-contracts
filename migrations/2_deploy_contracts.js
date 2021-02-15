@@ -41,7 +41,7 @@ module.exports = async function (deployer, network, accounts) {
 	await auc.mint(nonPublicSupplyAddr, nonPublicSupply);
 
 	// Deploy Main contract
-	const ELLContractAddr = "0x9d9aeea38de4643066bc09d3b210737b59af3a93";
+	const ELLContractAddr = "0x61872c4a40D70586A6469dF04d01d00B66580777";
 	const MaxSwappableELL = "18984565000000000000000000"; // 18984565
 	const UniswapRouterAddr = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
 	await deployer.deploy(

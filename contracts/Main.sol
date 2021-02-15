@@ -79,9 +79,10 @@ contract Main is Owner {
     ///
     /// @param swapAmount is the amount of ELL that 'from' has approved to be burned.
     function swapELL(uint256 swapAmount) public {
+        require(swapAmount > 0, "Amount cannot be zero");
         require(
             ell.allowance(msg.sender, address(this)) >= swapAmount,
-            "Swap amount not unlocked"
+            "Amount not unlocked"
         );
         require(
             SM.add(ellSwapped, swapAmount) <= maxSwappableELL,
