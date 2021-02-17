@@ -6,16 +6,14 @@ module.exports = async function (deployer, network, accounts) {
 	const sender = accounts[0]; // change this;
 
 	// Deploy the Dilithium contract.
-	const DecayHaltFee = web3.utils.toWei("2");
-	const DecayDuration = 86400 * 60;
-	await deployer.deploy(Dilithium, DecayHaltFee, DecayDuration, { from: sender });
+	await deployer.deploy(Dilithium, { from: sender });
 	const dil = await Dilithium.deployed();
 
 	// Deploy the Auction contract.
-	const MinRequiredDILSupply = 1000;
+	const MinRequiredDILSupply = web3.utils.toWei("1");
 	const MaxPeriods = 1;
-	const LTNSupplyPerPeriod = 10;
-	const MinBidAmount = 1000;
+	const LTNSupplyPerPeriod = web3.utils.toWei("1000");
+	const MinBidAmount = web3.utils.toWei("100");
 	const FundingAddr = accounts[5];
 	const AuctionFee = 1;
 	await deployer.deploy(
@@ -30,10 +28,6 @@ module.exports = async function (deployer, network, accounts) {
 		{ from: sender },
 	);
 	const auc = await Auction.deployed();
-
-	// Pass the Latinum/Auction contract address to the Dilithium contract,
-	// so the Dilithium contract know the address of the Latinum/Auction contract.
-	await dil.setLTNAddress(auc.address);
 
 	// Pre-mine non-public supply of Latinum.
 	const nonPublicSupplyAddr = accounts[4];

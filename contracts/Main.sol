@@ -227,16 +227,6 @@ contract Main is Owner {
         return true;
     }
 
-    /// @dev setDecayHaltFee sets the decay halt fee.
-    function setDecayHaltFee(uint256 val) public isOwner() {
-        dil.setDecayHaltFee(val);
-    }
-
-    /// @dev setDecayDuration sets the number of seconds it takes for DIL to decay.
-    function setDecayDuration(uint256 val) public isOwner() {
-        dil.setDecayDuration(val);
-    }
-
     /// @dev setFundingAddress sets the funding address
     /// @param addr is the address to change to.
     function setFundingAddress(address addr) public isOwner() {

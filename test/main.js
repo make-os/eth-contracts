@@ -17,9 +17,7 @@ contract("Main", (accts) => {
 		maxSwappableELL,
 		fundingAddr,
 		maxInitialLiquidityFund,
-		decayHaltFee,
-		auctionFee,
-		decayDur;
+		auctionFee;
 
 	beforeEach(async () => {
 		ltnSupplyPerPeriod = 100;
@@ -31,9 +29,7 @@ contract("Main", (accts) => {
 			from: accts[3],
 		});
 
-		decayHaltFee = web3.utils.toWei("2");
-		decayDur = 86400 * 60;
-		dil = await Dilithium.new(decayHaltFee, decayDur, { from: accts[0] });
+		dil = await Dilithium.new({ from: accts[0] });
 
 		fundingAddr = accts[5];
 		auctionFee = 0;
@@ -47,8 +43,6 @@ contract("Main", (accts) => {
 			auctionFee,
 			{ from: accts[0] },
 		);
-
-		await dil.setLTNAddress(auc.address);
 
 		maxSwappableELL = 10000;
 		let uniswapRouter = "0x0000000000000000000000000000000000000000";

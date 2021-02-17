@@ -8,19 +8,10 @@ dayjs.extend(duration);
 
 contract("Auction", (accts) => {
 	let auc, dil;
-	let ltnSupplyPerPeriod,
-		minDILSupply,
-		maxPeriods,
-		minBid,
-		decayHaltFee,
-		decayDur,
-		auctionFee,
-		fundingAddr;
+	let ltnSupplyPerPeriod, minDILSupply, maxPeriods, minBid, auctionFee, fundingAddr;
 
 	beforeEach(async () => {
-		decayHaltFee = web3.utils.toWei("2");
-		decayDur = 86400 * 60;
-		dil = await Dilithium.new(decayHaltFee, decayDur, { from: accts[0] });
+		dil = await Dilithium.new({ from: accts[0] });
 
 		ltnSupplyPerPeriod = 100;
 		maxPeriods = 2;
@@ -37,8 +28,6 @@ contract("Auction", (accts) => {
 			fundingAddr,
 			auctionFee,
 		);
-
-		await dil.setLTNAddress(auc.address);
 	});
 
 	describe(".makePeriod", async function () {

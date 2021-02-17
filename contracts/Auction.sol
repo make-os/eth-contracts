@@ -215,26 +215,41 @@ contract Auction is Latinum(address(0)) {
     }
 
     /// @dev getNumOfClaims returns the number of claims the sender has.
-    function getNumOfClaims() public view returns (uint256) {
-        return claims[msg.sender].length;
+    function getNumOfClaims() public view returns (uint256 n) {
+        for (uint256 i = 0; i < claims[msg.sender].length; i++) {
+            if (claims[msg.sender][i].bid > 0) {
+                n++;
+            }
+        }
     }
 
     /// @dev getNumOfClaimsOfAddr returns the number of an address.
-    function getNumOfClaimsOfAddr(address addr) public view returns (uint256) {
-        return claims[addr].length;
+    function getNumOfClaimsOfAddr(address addr)
+        public
+        view
+        returns (uint256 n)
+    {
+        for (uint256 i = 0; i < claims[msg.sender].length; i++) {
+            if (claims[addr][i].bid > 0) {
+                n++;
+            }
+        }
     }
 
     /// @dev claim
     function claim() public {
-        bool recentActive;
-
-        for (uint256 i = 0; i < getNumOfClaims(); i++) {
+        uint256 nClaims = getNumOfClaims();
+        uint256 deleted = 0;
+        for (uint256 i = 0; i < nClaims; i++) {
             Claim memory claim_ = claims[msg.sender][i];
-            Period memory period = periods[claim_.period];
+            if (claim_.bid == 0) {
+                deleted++;
+                continue;
+            }
 
             // Skip claim in current, unexpired period
+            Period memory period = periods[claim_.period];
             if (period.endTime > block.timestamp) {
-                recentActive = true;
                 continue;
             }
 
@@ -247,14 +262,10 @@ contract Auction is Latinum(address(0)) {
             _mint(msg.sender, ltnReward);
 
             emit NewClaim(msg.sender, ltnReward, claim_.period);
+            deleted++;
         }
 
-        if (recentActive) {
-            Claim memory recent =
-                claims[msg.sender][claims[msg.sender].length - 1];
-            delete claims[msg.sender];
-            claims[msg.sender].push(recent);
-        } else {
+        if (deleted == nClaims) {
             delete claims[msg.sender];
         }
     }

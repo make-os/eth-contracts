@@ -30,8 +30,6 @@ describe("LiquidityMining", function () {
 		maxSwappableELL,
 		fundingAddr,
 		maxInitialLiquidityFund,
-		decayHaltFee,
-		decayDur,
 		auctionFee;
 	let r;
 	let lp;
@@ -53,12 +51,7 @@ describe("LiquidityMining", function () {
 			weth.address,
 		]);
 
-		decayHaltFee = web3.utils.toWei("2");
-		decayDur = 86400 * 60;
-		dil = await Waffle.deployContract(accts[0], DilithiumBytecode, [
-			decayHaltFee,
-			decayDur,
-		]);
+		dil = await Waffle.deployContract(accts[0], DilithiumBytecode);
 
 		ltnSupplyPerPeriod = 100;
 		maxPeriods = 1;
@@ -75,8 +68,6 @@ describe("LiquidityMining", function () {
 			fundingAddr,
 			auctionFee,
 		]);
-
-		await dil.setLTNAddress(auc.address);
 
 		main = await Waffle.deployContract(accts[0], MainBytecode, [
 			10000,
