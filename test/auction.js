@@ -571,6 +571,24 @@ contract("Auction", (accts) => {
 		});
 	});
 
+	describe(".getNumOfClaimsOfAddr", () => {
+		it("should return expected number of claims", async () => {
+			auc = await Auction.new(
+				dil.address,
+				minDILSupply,
+				maxPeriods,
+				ltnSupplyPerPeriod,
+				minBid,
+				fundingAddr,
+				auctionFee,
+			);
+			await unlock(accts[1], 1000);
+			await bid(accts[1], 500);
+			await bid(accts[1], 500);
+			expect((await auc.getNumOfClaimsOfAddr(accts[1])).toNumber()).to.equal(2);
+		});
+	});
+
 	describe(".withdraw", () => {
 		it("should revert with 'Not authorized' if sender is not the funding address", async () => {
 			expect(await auc.fundingAddress()).to.equal(accts[5]);

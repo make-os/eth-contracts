@@ -229,7 +229,7 @@ contract Auction is Latinum(address(0)) {
         view
         returns (uint256 n)
     {
-        for (uint256 i = 0; i < claims[msg.sender].length; i++) {
+        for (uint256 i = 0; i < claims[addr].length; i++) {
             if (claims[addr][i].bid > 0) {
                 n++;
             }
@@ -238,7 +238,7 @@ contract Auction is Latinum(address(0)) {
 
     /// @dev claim
     function claim() public {
-        uint256 nClaims = getNumOfClaims();
+        uint256 nClaims = claims[msg.sender].length;
         uint256 deleted = 0;
         for (uint256 i = 0; i < nClaims; i++) {
             Claim memory claim_ = claims[msg.sender][i];
@@ -255,6 +255,7 @@ contract Auction is Latinum(address(0)) {
 
             // Delete claim
             delete claims[msg.sender][i];
+            deleted++;
 
             // Get base point for the claim
             uint256 bps = SM.getBPSOfAInB(claim_.bid, period.totalBids);
@@ -262,7 +263,6 @@ contract Auction is Latinum(address(0)) {
             _mint(msg.sender, ltnReward);
 
             emit NewClaim(msg.sender, ltnReward, claim_.period);
-            deleted++;
         }
 
         if (deleted == nClaims) {
