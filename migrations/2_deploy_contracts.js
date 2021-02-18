@@ -11,7 +11,7 @@ module.exports = async function (deployer, network, accounts) {
 
 	// Deploy the Auction contract.
 	const MinRequiredDILSupply = web3.utils.toWei("1");
-	const MaxPeriods = 1;
+	const MaxPeriods = 300;
 	const LTNSupplyPerPeriod = web3.utils.toWei("1000");
 	const MinBidAmount = web3.utils.toWei("100");
 	const FundingAddr = accounts[5];

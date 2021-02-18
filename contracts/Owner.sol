@@ -4,11 +4,6 @@ pragma solidity ^0.6.6;
 contract Owner {
     address public owner;
 
-    // TODO: remove in prod
-    event LogString(string s);
-    event LogAddr(address s);
-    event LogInt(uint256 i, uint256 j);
-
     constructor() public {
         owner = msg.sender;
     }
