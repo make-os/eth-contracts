@@ -4,6 +4,7 @@ const truffleAssert = require("truffle-assertions");
 const dayjs = require("dayjs");
 const duration = require("dayjs/plugin/duration");
 const utils = require("./utils");
+const { expect } = require("chai");
 dayjs.extend(duration);
 
 contract("Auction", (accts) => {
@@ -586,6 +587,16 @@ contract("Auction", (accts) => {
 			await bid(accts[1], 500);
 			await bid(accts[1], 500);
 			expect((await auc.getNumOfClaimsOfAddr(accts[1])).toNumber()).to.equal(2);
+		});
+	});
+
+	describe(".setMaxPeriods", () => {
+		it("should update maxPeriods", async () => {
+			let mp = await auc.maxPeriods();
+			expect(mp.toNumber()).to.equal(maxPeriods);
+			await auc.setMaxPeriods(10);
+			mp = await auc.maxPeriods();
+			expect(mp.toNumber()).to.equal(10);
 		});
 	});
 

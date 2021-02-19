@@ -285,4 +285,10 @@ contract Auction is Latinum(address(0)) {
         require(remaining >= amt, "Insufficient remaining supply");
         _mint(to, amt);
     }
+
+    /// @dev setMaxPeriods updates the number of auction periods.
+    /// @param n is the new number of periods
+    function setMaxPeriods(uint256 n) public isOwner() {
+        maxPeriods = n;
+    }
 }

@@ -246,4 +246,10 @@ contract Main is Owner {
     function transferUnallocated(address to, uint256 amt) public isOwner() {
         auc.transferUnallocated(to, amt);
     }
+
+    /// @dev setMaxPeriods updates the number of auction periods.
+    /// @param n is the new number of periods
+    function setMaxPeriods(uint256 n) public isOwner() {
+        auc.setMaxPeriods(n);
+    }
 }
