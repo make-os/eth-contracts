@@ -74,6 +74,35 @@ contract("Auction", (accts) => {
 				expect((await auc.getNumOfPeriods()).toNumber()).to.equal(1);
 			});
 
+			it("should not revert if DIL supply falls below minimum required", async () => {
+				await utils.advanceTime(0);
+				auc = await Auction.new(
+					dil.address,
+					minDILSupply,
+					maxPeriods,
+					ltnSupplyPerPeriod,
+					minBid,
+					fundingAddr,
+					auctionFee,
+				);
+
+				await dil.mint(accts[0], minDILSupply);
+				await auc.makePeriod();
+				expect((await auc.getNumOfPeriods()).toNumber()).to.equal(1);
+
+				let totalDILSupply = await dil.totalSupply();
+				expect(totalDILSupply.toNumber()).to.equal(minDILSupply);
+
+				await dil.burn(minDILSupply, { from: accts[0] });
+				totalDILSupply = await dil.totalSupply();
+				expect(totalDILSupply.toNumber()).to.equal(0);
+				expect((await auc.getNumOfPeriods()).toNumber()).to.equal(1);
+
+				await utils.advanceTime(86400);
+				await auc.makePeriod();
+				expect((await auc.getNumOfPeriods()).toNumber()).to.equal(2);
+			});
+
 			it("should add a new period and set LTN supply", async () => {
 				await utils.advanceTime(0);
 				auc = await Auction.new(
