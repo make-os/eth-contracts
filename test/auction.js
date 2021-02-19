@@ -5,6 +5,7 @@ const dayjs = require("dayjs");
 const duration = require("dayjs/plugin/duration");
 const utils = require("./utils");
 const { expect } = require("chai");
+const { constants } = require("ethers");
 dayjs.extend(duration);
 
 contract("Auction", (accts) => {
@@ -172,9 +173,11 @@ contract("Auction", (accts) => {
 			try {
 				// approve bid amount
 				await dil.mint(account, amount);
-				expect((await dil.balanceOf(account)).toNumber()).to.equal(amount);
+				expect((await dil.balanceOf(account)).toString()).to.equal(amount.toString());
 				await dil.approve(auc.address, amount, { from: account });
-				expect((await dil.allowance(account, auc.address)).toNumber()).to.equal(amount);
+				expect((await dil.allowance(account, auc.address)).toString()).to.equal(
+					amount.toString(),
+				);
 				res();
 			} catch (error) {
 				rej(error);
@@ -386,7 +389,7 @@ contract("Auction", (accts) => {
 		describe("when there are more than 7 periods", () => {
 			beforeEach(async () => {
 				maxPeriods = 10;
-				auctionFee = 1000;
+				auctionFee = web3.utils.toWei("0.001");
 				auc = await Auction.new(
 					dil.address,
 					minDILSupply,
@@ -396,7 +399,7 @@ contract("Auction", (accts) => {
 					fundingAddr,
 					auctionFee,
 				);
-				await unlock(accts[1], 100000000);
+				await unlock(accts[1], constants.MaxUint256);
 				await bid(accts[1], 100);
 				await utils.advanceTime(86500);
 				await bid(accts[1], 100);
@@ -422,17 +425,24 @@ contract("Auction", (accts) => {
 			});
 
 			it("should revert if deposit fee sent is insufficient", async () => {
+				await utils.advanceTime(86500);
+				minBid = 1000;
+				let bidAmt = minBid * 50;
+				let bidAmtWei = web3.utils.toWei(bidAmt.toString());
+				let aucFee = web3.utils.toWei("49");
 				await truffleAssert.reverts(
-					bid(accts[1], minBid * 50, 100),
+					bid(accts[1], bidAmtWei, aucFee),
 					"Auction fee too low",
 				);
 			});
 
 			it("should accept bid if minBid is >= (50 * minBid) and auction fee is sufficient", async () => {
 				await utils.advanceTime(86500);
+				minBid = 1000;
 				let bidAmt = minBid * 50;
+				let bidAmtWei = web3.utils.toWei(bidAmt.toString());
 				let aucFee = auctionFee * bidAmt;
-				await bid(accts[1], minBid * 50, aucFee);
+				await bid(accts[1], bidAmtWei, aucFee);
 			});
 		});
 	});

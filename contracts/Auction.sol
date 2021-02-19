@@ -143,7 +143,7 @@ contract Auction is Latinum(address(0)) {
             emit NewPeriod(index, period.endTime);
         }
 
-        // Get the current period or create a new one
+        // Get the current period
         if (period.endTime == 0 && periods.length > 0) {
             period = periods[periods.length - 1];
             index = periods.length - 1;
@@ -151,7 +151,7 @@ contract Auction is Latinum(address(0)) {
 
         // If period has ended, start a new one
         if (period.endTime <= block.timestamp) {
-            period = Period(period.endTime + 24 hours, ltnSupplyPerPeriod, 0);
+            period = Period(block.timestamp + 24 hours, ltnSupplyPerPeriod, 0);
             periods.push(period);
             index = periods.length - 1;
             numPeriods++;
@@ -190,7 +190,7 @@ contract Auction is Latinum(address(0)) {
             revert("Bid amount too high");
         }
 
-        if (index > 6 && msg.value < bidAmt * fee) {
+        if (index > 6 && msg.value < (bidAmt / 1 ether) * fee) {
             revert("Auction fee too low");
         }
 
