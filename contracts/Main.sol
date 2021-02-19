@@ -34,6 +34,9 @@ contract Main is Owner {
     // ellSwapped is the number of ELL swapped.
     uint256 public ellSwapped;
 
+    // enableLiqLock indicates whether to enable liquidity locking
+    bool enableLiqLock;
+
     // maxSwappableELL is the maximum number of ELL that can be swapped.
     uint256 public maxSwappableELL;
 
@@ -69,6 +72,7 @@ contract Main is Owner {
         dil = Dilithium(_dilAddress);
         maxSwappableELL = _maxSwappableELL;
         router = UniswapV2Router02(_uniswapV2RouterAddress);
+        enableLiqLock = false;
     }
 
     /// @dev swapELL swaps ELL approved by <from> by burning it
@@ -99,10 +103,16 @@ contract Main is Owner {
         emit SwappedELL(msg.sender, swapAmount);
     }
 
+    function toggleEnableLiqLocking() public isOwner() {
+        enableLiqLock = !enableLiqLock;
+    }
+
     /// @dev lockLiquidity locks LTN/ETH Uniswap liquidity.
     /// @param amount is the number of liquidity to lock. Up to this amount
     /// must have been approved by the sender.
     function lockLiquidity(uint256 amount) external {
+        require(enableLiqLock == true, "Not Enabled");
+
         address token = address(auc);
         IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
         IUniswapV2Pair pair =
