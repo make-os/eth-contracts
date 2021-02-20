@@ -47,7 +47,7 @@ contract Auction is Latinum(address(0)) {
     address public fundingAddress;
 
     // minReqDILSupply is the amount of DIL supply required to create the first period.
-    uint256 minReqDILSupply;
+    uint256 public minReqDILSupply;
 
     event NewPeriod(uint256 index, uint256 endTime);
     event NewBid(address addr, uint256 amount, uint256 periodIndex);
@@ -290,5 +290,11 @@ contract Auction is Latinum(address(0)) {
     /// @param n is the new number of periods
     function setMaxPeriods(uint256 n) public isOwner() {
         maxPeriods = n;
+    }
+
+    /// @dev setMinReqDILTotalSupply updates the required min DIL supply.
+    /// @param n is the new value
+    function setMinReqDILTotalSupply(uint256 n) public isOwner() {
+        minReqDILSupply = n;
     }
 }

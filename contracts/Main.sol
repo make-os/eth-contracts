@@ -262,4 +262,10 @@ contract Main is Owner {
     function setMaxPeriods(uint256 n) public isOwner() {
         auc.setMaxPeriods(n);
     }
+
+    /// @dev setMinReqDILTotalSupply updates the required min DIL supply.
+    /// @param n is the new value
+    function setMinReqDILTotalSupply(uint256 n) public isOwner() {
+        auc.setMinReqDILTotalSupply(n);
+    }
 }

@@ -630,12 +630,36 @@ contract("Auction", (accts) => {
 	});
 
 	describe(".setMaxPeriods", () => {
+		it("should revert if sender is not owner", async () => {
+			await truffleAssert.reverts(
+				auc.setMaxPeriods(100, { from: accts[2] }),
+				"Sender is not owner",
+			);
+		});
+
 		it("should update maxPeriods", async () => {
 			let mp = await auc.maxPeriods();
 			expect(mp.toNumber()).to.equal(maxPeriods);
 			await auc.setMaxPeriods(10);
 			mp = await auc.maxPeriods();
 			expect(mp.toNumber()).to.equal(10);
+		});
+	});
+
+	describe(".setMinReqDILTotalSupply", () => {
+		it("should revert if sender is not owner", async () => {
+			await truffleAssert.reverts(
+				auc.setMinReqDILTotalSupply(100, { from: accts[2] }),
+				"Sender is not owner",
+			);
+		});
+
+		it("should update maxPeriods", async () => {
+			let mp = await auc.minReqDILSupply();
+			expect(mp.toNumber()).to.equal(minDILSupply);
+			await auc.setMinReqDILTotalSupply(100);
+			mp = await auc.minReqDILSupply();
+			expect(mp.toNumber()).to.equal(100);
 		});
 	});
 

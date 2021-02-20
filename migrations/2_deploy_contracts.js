@@ -10,7 +10,7 @@ module.exports = async function (deployer, network, accounts) {
 	const dil = await Dilithium.deployed();
 
 	// Deploy the Auction contract.
-	const MinRequiredDILSupply = web3.utils.toWei("25000000");
+	const MinRequiredDILSupply = web3.utils.toWei("50000000");
 	const MaxPeriods = 300;
 	const LTNSupplyPerPeriod = web3.utils.toWei("300000");
 	const MinBidAmount = web3.utils.toWei("1000");
