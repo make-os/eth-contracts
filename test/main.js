@@ -3,8 +3,6 @@ const Latinum = artifacts.require("Latinum");
 const Auction = artifacts.require("Auction");
 const Dilithium = artifacts.require("Dilithium");
 const ELL = artifacts.require("../contracts/libraries/ell/EIP20.sol");
-const UniswapV2Library = artifacts.require("./libraries/uniswap/UniswapV2Library.sol");
-const IUniswapV2Pair = artifacts.require("./libraries/uniswap/IUniswapV2Pair.sol");
 const { expect } = require("chai");
 const truffleAssert = require("truffle-assertions");
 
@@ -45,32 +43,12 @@ contract("Main", (accts) => {
 		);
 
 		maxSwappableELL = 10000;
-		let uniswapRouter = "0x0000000000000000000000000000000000000000";
-		main = await Main.new(
-			maxSwappableELL,
-			ell.address,
-			dil.address,
-			auc.address,
-			uniswapRouter,
-			{ from: accts[0] },
-		);
+		main = await Main.new(maxSwappableELL, ell.address, dil.address, {
+			from: accts[0],
+		});
+		await main.setAuc(auc.address);
 		await auc.setOwner(main.address, { from: accts[0] });
 		await dil.setOwner(main.address, { from: accts[0] });
-	});
-
-	describe(".setK", async function () {
-		it("should revert if sender is not owner", async () => {
-			await truffleAssert.reverts(
-				main.setK(accts[6], { from: accts[2] }),
-				"Sender is not owner",
-			);
-		});
-
-		it("should set new address if sender is owner", async () => {
-			expect((await main.rewardK()).toString()).to.equal("0");
-			await main.setK("123", { from: accts[0] });
-			expect((await main.rewardK()).toString()).to.equal("123");
-		});
 	});
 
 	describe(".mintDIL", () => {
