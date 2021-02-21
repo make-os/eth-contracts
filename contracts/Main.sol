@@ -14,7 +14,6 @@ struct LiquidityTicket {
     uint256 amount;
     uint256 lockedAt;
     bool LTN_ETH;
-    bool DIL_ETH;
 }
 
 /// @title Main
@@ -130,7 +129,6 @@ contract Main is Owner {
             amount
         );
         lockedLTN_WETH[msg.sender].LTN_ETH = true;
-        lockedLTN_WETH[msg.sender].DIL_ETH = false;
         if (lockedLTN_WETH[msg.sender].lockedAt == 0) {
             lockedLTN_WETH[msg.sender].lockedAt = block.timestamp;
         }
