@@ -2,9 +2,10 @@ const HDWallet = require("@truffle/hdwallet-provider");
 const web3 = require("web3");
 const mnemonic = process.env.MNEMONIC;
 const providerAddr = process.env.PROVIDER_ADDR;
+const etherscanToken = process.env.ETHERSCAN_TOKEN;
 
 module.exports = {
-	plugins: ["solidity-coverage"],
+	plugins: ["solidity-coverage", "truffle-plugin-verify"],
 	compilers: {
 		solc: {
 			version: "0.6.6",
@@ -15,6 +16,9 @@ module.exports = {
 				},
 			},
 		},
+	},
+	api_keys: {
+		etherscan: etherscanToken,
 	},
 	networks: {
 		live: {
@@ -29,13 +33,6 @@ module.exports = {
 			port: 7545,
 			network_id: "*",
 			gasPrice: web3.utils.toWei("120", "gwei"),
-		},
-		rinkeby: {
-			provider: function () {
-				return new HDWallet(process.env.MNEMONIC, process.env.PROVIDER_ADDR);
-			},
-			network_id: "4",
-			websockets: true,
 		},
 	},
 };
