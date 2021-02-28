@@ -9,13 +9,13 @@
   "dependencies": {
     "@uniswap/lib": "^4.0.1-alpha",
     "@uniswap/v2-core": "^1.0.1",
-    "@uniswap/v2-periphery": "^1.1.0-beta.0",
-    "dayjs": "^1.10.4",
-    "ganache": "^6.4.4",
-    "truffle-plugin-verify": "^0.5.4"
+    "@uniswap/v2-periphery": "^1.1.0-beta.0"
   },
   "devDependencies": {
     "@truffle/contract": "^4.3.5",
+    "dayjs": "^1.10.4",
+    "truffle-plugin-verify": "^0.5.4",
+    "ganache": "^6.4.4",
     "@truffle/hdwallet-provider": "^1.2.1",
     "@types/chai": "^4.2.14",
     "@types/ganache-core": "^2.7.0",
